@@ -1,3 +1,24 @@
 <resources>
     <string name="app_name">expense tracker</string>
+    <string name="add_person">Add person</string>
+    <string name="import_from_contacts">Import from Contacts</string>
+    <string name="create_manually">Create manually</string>
+    <string name="confirm_import">Confirm import</string>
+    <string name="confirm_person">Add person</string>
+    <string name="use_existing">Use Existing</string>
+    <string name="create_new">Create New</string>
+    <string name="person_already_exists">%1$s already exists</string>
+    <string name="contact_matches_existing">This contact matches an existing person in your expense list.</string>
+    <string name="review_imported_contact">Review imported contact</string>
+    <string name="review_imported_contact_subtitle">Confirm details before adding this person.</string>
+    <string name="name">Name</string>
+    <string name="phone">Phone</string>
+    <string name="email">Email</string>
+    <string name="no_persons_yet">No persons yet</string>
+    <string name="no_persons_hint">Tap Add person to import from contacts or create manually.</string>
+    <string name="contacts_permission_required">Contacts permission is required to import.</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="not_available">Not available</string>
 </resources>
