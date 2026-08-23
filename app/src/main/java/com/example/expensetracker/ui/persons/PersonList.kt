@@ -2,17 +2,17 @@ package com.example.expensetracker.ui.persons
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,10 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.expensetracker.model.Person
-import kotlin.math.abs
+import com.example.expensetracker.ui.preview.AppPreview
+import kotlin.math.absoluteValue
 
 private data class PersonListSection(
     val header: Char,
@@ -48,24 +50,63 @@ private val AvatarColors = listOf(
 fun GroupedPersonList(
     persons: List<Person>,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(bottom = 88.dp)
+    contentPadding: PaddingValues = PaddingValues(
+        start = 16.dp,
+        end = 16.dp,
+        bottom = 88.dp
+    ),
+    onPersonClick: (Person) -> Unit = {}
 ) {
-    val sections = remember(persons) { groupPersonsByLetter(persons) }
+    val sections = remember(persons) {
+        groupPersonsByLetter(persons)
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = contentPadding
     ) {
-        sections.forEach { section ->
-            item(key = "header_${section.header}") {
-                PersonSectionHeader(letter = section.header)
-            }
+        items(
+            items = sections,
+            key = { section -> section.header }
+        ) { section ->
 
-            items(
-                items = section.persons,
-                key = { person -> person.id }
-            ) { person ->
-                PersonListRow(person = person)
+            Column {
+                PersonSectionHeader(
+                    letter = section.header
+                )
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(
+                        ListItemDefaults.SegmentedGap
+                    )
+                ) {
+                    section.persons.forEachIndexed { index, person ->
+
+                        SegmentedListItem(
+                            selected = false,
+                            onClick = {
+                                onPersonClick(person)
+                            },
+                            shapes = ListItemDefaults.segmentedShapes(
+                                index = index,
+                                count = section.persons.size
+                            ),
+                            colors = ListItemDefaults.segmentedColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            ),
+                            leadingContent = {
+                                PersonAvatar(person)
+                            },
+                            content = {
+                                Text(
+                                    text = person.name,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -78,40 +119,15 @@ private fun PersonSectionHeader(
 ) {
     Text(
         text = letter.toString(),
-        style = MaterialTheme.typography.titleMedium,
+        style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp)
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(
+            start = 16.dp,
+            top = 20.dp,
+            bottom = 8.dp
+        )
     )
-}
-
-@Composable
-private fun PersonListRow(
-    person: Person,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            PersonAvatar(person = person)
-            Text(
-                text = person.name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
 }
 
 @Composable
@@ -119,54 +135,72 @@ private fun PersonAvatar(
     person: Person,
     modifier: Modifier = Modifier
 ) {
-    if (person.photoUri != null) {
+    val photoUri = person.photoUri
+
+    if (photoUri != null) {
         AsyncImage(
-            model = person.photoUri,
-            contentDescription = person.name,
+            model = photoUri,
+            contentDescription = "${person.name} profile picture",
             modifier = modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(CircleShape),
             contentScale = ContentScale.Crop
         )
     } else {
-        val initial = person.name.firstOrNull()?.uppercaseChar()?.toString().orEmpty()
-        val backgroundColor = avatarColorForName(person.name)
+        val initial = person.name
+            .trim()
+            .firstOrNull()
+            ?.uppercaseChar()
+            ?.toString()
+            .orEmpty()
 
-        Box(
-            modifier = modifier
-                .size(44.dp)
-                .clip(CircleShape),
-            contentAlignment = Alignment.Center
+        Surface(
+            modifier = modifier.size(48.dp),
+            shape = CircleShape,
+            color = avatarColorForName(person.name)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = CircleShape,
-                color = backgroundColor
-            ) {}
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.White
-            )
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initial,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
+            }
         }
     }
 }
 
-private fun groupPersonsByLetter(persons: List<Person>): List<PersonListSection> {
+private fun groupPersonsByLetter(
+    persons: List<Person>
+): List<PersonListSection> {
     return persons
-        .sortedBy { it.name.lowercase() }
+        .sortedBy { it.name.trim().lowercase() }
         .groupBy { person ->
-            person.name.firstOrNull()?.uppercaseChar() ?: '#'
+            person.name
+                .trim()
+                .firstOrNull()
+                ?.uppercaseChar()
+                ?: '#'
         }
         .toList()
         .sortedBy { (letter, _) -> letter }
         .map { (letter, sectionPersons) ->
-            PersonListSection(header = letter, persons = sectionPersons)
+            PersonListSection(
+                header = letter,
+                persons = sectionPersons
+            )
         }
 }
 
 private fun avatarColorForName(name: String): Color {
-    if (name.isBlank()) return AvatarColors.first()
-    return AvatarColors[abs(name.hashCode()) % AvatarColors.size]
+    if (name.isBlank()) {
+        return AvatarColors.first()
+    }
+
+    return AvatarColors[
+        name.hashCode().absoluteValue % AvatarColors.size
+    ]
 }

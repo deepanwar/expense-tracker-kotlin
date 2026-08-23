@@ -35,10 +35,20 @@ import com.example.expensetracker.util.ContactReader
 import kotlinx.coroutines.launch
 
 private sealed class PersonAddStep {
+
     data object Options : PersonAddStep()
+
     data object Manual : PersonAddStep()
-    data class Duplicate(val contact: ImportedContact, val existing: Person) : PersonAddStep()
-    data class Confirm(val contact: ImportedContact) : PersonAddStep()
+
+    data class EditImported(
+        val contact: ImportedContact,
+        val allowDuplicate: Boolean = false
+    ) : PersonAddStep()
+
+    data class Duplicate(
+        val contact: ImportedContact,
+        val existing: Person
+    ) : PersonAddStep()
 }
 
 @Composable
@@ -62,14 +72,7 @@ fun PersonsScreen(
         if (uri == null) return@rememberLauncherForActivityResult
 
         val contact = ContactReader.readContact(context, uri) ?: return@rememberLauncherForActivityResult
-        scope.launch {
-            val existing = viewModel.findExistingForImport(contact)
-            addStep = if (existing != null) {
-                PersonAddStep.Duplicate(contact, existing)
-            } else {
-                PersonAddStep.Confirm(contact)
-            }
-        }
+        addStep = PersonAddStep.EditImported(contact)
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -103,21 +106,20 @@ fun PersonsScreen(
         }
     }
 
-    fun finishImport(contact: ImportedContact) {
-        viewModel.addPersonFromImport(contact)
-        dismissFlow()
-    }
-
-    fun handleManualSave(name: String, phone: String?, email: String?) {
-        val contact = ImportedContact(name = name, phone = phone, email = email)
+    fun handlePersonSave(
+        contact: ImportedContact,
+        allowDuplicate: Boolean = false
+    ) {
         scope.launch {
-            val existing = viewModel.findExistingForImport(contact)
-            if (existing != null) {
-                addStep = PersonAddStep.Duplicate(contact, existing)
-            } else {
-                viewModel.addPersonManually(name, phone, email)
-                dismissFlow()
+            if (!allowDuplicate) {
+                val existing = viewModel.findExistingForImport(contact)
+                if (existing != null) {
+                    addStep = PersonAddStep.Duplicate(contact, existing)
+                    return@launch
+                }
             }
+            viewModel.addPersonFromImport(contact)
+            dismissFlow()
         }
     }
 
@@ -138,7 +140,27 @@ fun PersonsScreen(
 
         PersonAddStep.Manual -> ManualPersonSheet(
             onDismiss = ::dismissFlow,
-            onSave = ::handleManualSave
+            onSave = { name, phone, email ->
+                handlePersonSave(ImportedContact(name = name, phone = phone, email = email))
+            }
+        )
+
+        is PersonAddStep.EditImported -> ManualPersonSheet(
+            onDismiss = ::dismissFlow,
+            initialName = step.contact.name,
+            initialPhone = step.contact.phone.orEmpty(),
+            initialEmail = step.contact.email.orEmpty(),
+            title = stringResource(R.string.review_imported_contact),
+            onSave = { name, phone, email ->
+                handlePersonSave(
+                    contact = step.contact.copy(
+                        name = name,
+                        phone = phone,
+                        email = email
+                    ),
+                    allowDuplicate = step.allowDuplicate
+                )
+            }
         )
 
         is PersonAddStep.Duplicate -> DuplicateMatchSheet(
@@ -146,13 +168,12 @@ fun PersonsScreen(
             existingPersonName = step.existing.name,
             onDismiss = ::dismissFlow,
             onUseExisting = ::dismissFlow,
-            onCreateNew = { addStep = PersonAddStep.Confirm(step.contact) }
-        )
-
-        is PersonAddStep.Confirm -> ImportConfirmationSheet(
-            contact = step.contact,
-            onDismiss = ::dismissFlow,
-            onConfirm = { finishImport(step.contact) }
+            onCreateNew = {
+                addStep = PersonAddStep.EditImported(
+                    contact = step.contact,
+                    allowDuplicate = true
+                )
+            }
         )
 
         null -> Unit

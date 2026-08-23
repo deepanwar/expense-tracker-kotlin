@@ -104,59 +104,6 @@ private fun PersonOptionRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ImportConfirmationSheet(
-    contact: ImportedContact,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.review_imported_contact),
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = stringResource(R.string.review_imported_contact_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ContactPreviewCard(contact = contact)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.cancel))
-                }
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(stringResource(R.string.confirm_person))
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 fun DuplicateMatchSheet(
     contact: ImportedContact,
     existingPersonName: String,
@@ -214,12 +161,27 @@ fun DuplicateMatchSheet(
 @Composable
 fun ManualPersonSheet(
     onDismiss: () -> Unit,
-    onSave: (name: String, phone: String?, email: String?) -> Unit
+    onSave: (name: String, phone: String?, email: String?) -> Unit,
+    initialName: String = "",
+    initialPhone: String = "",
+    initialEmail: String = "",
+    title: String = stringResource(R.string.create_manually)
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var name by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    var name by remember(initialName) {
+        mutableStateOf(initialName)
+    }
+
+    var phone by remember(initialPhone) {
+        mutableStateOf(initialPhone)
+    }
+
+    var email by remember(initialEmail) {
+        mutableStateOf(initialEmail)
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -233,33 +195,43 @@ fun ManualPersonSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = stringResource(R.string.create_manually),
+                text = title,
                 style = MaterialTheme.typography.titleLarge
             )
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(stringResource(R.string.name)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text(stringResource(R.string.phone)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text(stringResource(R.string.email)) },
+                label = {
+                    Text(stringResource(R.string.name))
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = {
+                    Text(stringResource(R.string.phone))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = {
+                    Text(stringResource(R.string.email))
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -269,8 +241,11 @@ fun ManualPersonSheet(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(stringResource(R.string.cancel))
+                    Text(
+                        text = stringResource(R.string.cancel)
+                    )
                 }
+
                 Button(
                     onClick = {
                         if (name.isNotBlank()) {
@@ -284,7 +259,9 @@ fun ManualPersonSheet(
                     enabled = name.isNotBlank(),
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(stringResource(R.string.save))
+                    Text(
+                        text = stringResource(R.string.save)
+                    )
                 }
             }
         }
