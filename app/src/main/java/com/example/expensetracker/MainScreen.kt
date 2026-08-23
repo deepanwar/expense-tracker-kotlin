@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.expensetracker.ui.persons.PersonsScreen
+import com.example.expensetracker.ui.preview.AppPreview
 import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
 import kotlinx.coroutines.delay
 
@@ -61,13 +62,15 @@ private enum class NavDestination(
 fun MainScreen(modifier: Modifier = Modifier) {
     var selectedDestination by rememberSaveable { mutableStateOf(NavDestination.Expenses) }
     var personAddRequestCount by remember { mutableIntStateOf(0) }
+    var isPersonDetailView by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
             AnimatedExtendedFab(
                 destination = selectedDestination,
-                visible = selectedDestination.showFab,
+                visible = selectedDestination.showFab && !isPersonDetailView,
+
                 onClick = {
                     if (selectedDestination == NavDestination.Persons) {
                         personAddRequestCount++
@@ -99,6 +102,9 @@ fun MainScreen(modifier: Modifier = Modifier) {
         NavContent(
             destination = selectedDestination,
             personAddRequestCount = personAddRequestCount,
+            onPersonDetailViewChanged = { isDetailView ->
+                isPersonDetailView = isDetailView
+            },
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -111,13 +117,13 @@ private fun AnimatedExtendedFab(
     onClick: () -> Unit
 ) {
     val fabLabel = destination.fabLabel ?: return
-    var expanded by rememberSaveable(destination) { mutableStateOf(false) }
+    var expanded by rememberSaveable(destination) { mutableStateOf(true) }
 
-    LaunchedEffect(destination) {
-        expanded = false
-        delay(100)
-        expanded = true
-    }
+    // LaunchedEffect(destination) {
+    //     expanded = false
+    //     delay(100)
+    //     expanded = true
+    // }
 
     AnimatedVisibility(
         visible = visible,
@@ -134,7 +140,7 @@ private fun AnimatedExtendedFab(
             onClick = onClick,
             expanded = expanded,
             modifier = Modifier.height(56.dp),
-            shape = FloatingActionButtonDefaults.smallShape,
+            shape = FloatingActionButtonDefaults.mediumShape,
             icon = {
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -155,11 +161,13 @@ private fun AnimatedExtendedFab(
 private fun NavContent(
     destination: NavDestination,
     personAddRequestCount: Int,
+    onPersonDetailViewChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (destination) {
         NavDestination.Persons -> PersonsScreen(
             addPersonRequestCount = personAddRequestCount,
+            onDetailViewChanged = onPersonDetailViewChanged,
             modifier = modifier
         )
 
@@ -176,7 +184,7 @@ private fun NavContent(
     }
 }
 
-@Preview(showBackground = true)
+@AppPreview
 @Composable
 fun MainScreenPreview() {
     ExpenseTrackerTheme {

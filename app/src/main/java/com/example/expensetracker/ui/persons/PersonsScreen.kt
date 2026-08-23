@@ -55,6 +55,7 @@ private sealed class PersonAddStep {
 fun PersonsScreen(
     addPersonRequestCount: Int,
     modifier: Modifier = Modifier,
+    onDetailViewChanged: (Boolean) -> Unit = {},
     viewModel: PersonsViewModel = viewModel(
         factory = PersonsViewModelFactory(
             (LocalContext.current.applicationContext as ExpenseTrackerApplication).personRepository
@@ -65,6 +66,10 @@ fun PersonsScreen(
     val scope = rememberCoroutineScope()
     val persons by viewModel.persons.collectAsStateWithLifecycle()
     var addStep by remember { mutableStateOf<PersonAddStep?>(null) }
+    var selectedPersonId by remember { mutableStateOf<Long?>(null) }
+    var actionsPerson by remember { mutableStateOf<Person?>(null) }
+    var editingPerson by remember { mutableStateOf<Person?>(null) }
+    var deletingPerson by remember { mutableStateOf<Person?>(null) }
 
     val pickContactLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickContact()
@@ -87,6 +92,10 @@ fun PersonsScreen(
         if (addPersonRequestCount > 0) {
             addStep = PersonAddStep.Options
         }
+    }
+
+    LaunchedEffect(selectedPersonId) {
+        onDetailViewChanged(selectedPersonId != null)
     }
 
     fun dismissFlow() {
@@ -123,11 +132,78 @@ fun PersonsScreen(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        if (persons.isEmpty()) {
-            EmptyPersonsState(modifier = Modifier.align(Alignment.Center))
-        } else {
-            GroupedPersonList(persons = persons)
+    fun handlePersonUpdate(
+        person: Person,
+        name: String,
+        phone: String?,
+        email: String?
+    ) {
+        scope.launch {
+            val contact = ImportedContact(
+                name = name,
+                phone = phone,
+                email = email,
+                contactId = person.contactId
+            )
+            val existing = viewModel.findExistingForImport(
+                contact = contact,
+                excludePersonId = person.id
+            )
+            if (existing != null) {
+                editingPerson = null
+                addStep = PersonAddStep.Duplicate(contact, existing)
+                return@launch
+            }
+
+            viewModel.updatePerson(
+                person.copy(
+                    name = name,
+                    phone = phone,
+                    email = email
+                )
+            )
+            editingPerson = null
+        }
+    }
+
+    fun confirmDelete(person: Person) {
+        viewModel.deletePerson(person)
+        deletingPerson = null
+        actionsPerson = null
+        if (selectedPersonId == person.id) {
+            selectedPersonId = null
+        }
+    }
+
+    val selectedPersonIdValue = selectedPersonId
+    if (selectedPersonIdValue != null) {
+        PersonDetailScreen(
+            personId = selectedPersonIdValue,
+            viewModel = viewModel,
+            modifier = modifier,
+            onBack = { selectedPersonId = null },
+            onEdit = { person ->
+                editingPerson = person
+            },
+            onDelete = { person ->
+                deletingPerson = person
+            }
+        )
+    } else {
+        Box(modifier = modifier.fillMaxSize()) {
+            if (persons.isEmpty()) {
+                EmptyPersonsState(modifier = Modifier.align(Alignment.Center))
+            } else {
+                GroupedPersonList(
+                    persons = persons,
+                    onPersonClick = { person ->
+                        selectedPersonId = person.id
+                    },
+                    onPersonMoreClick = { person ->
+                        actionsPerson = person
+                    }
+                )
+            }
         }
     }
 
@@ -177,6 +253,46 @@ fun PersonsScreen(
         )
 
         null -> Unit
+    }
+
+    actionsPerson?.let { person ->
+        PersonActionsSheet(
+            person = person,
+            onDismiss = { actionsPerson = null },
+            onView = {
+                actionsPerson = null
+                selectedPersonId = person.id
+            },
+            onEdit = {
+                actionsPerson = null
+                editingPerson = person
+            },
+            onDelete = {
+                actionsPerson = null
+                deletingPerson = person
+            }
+        )
+    }
+
+    editingPerson?.let { person ->
+        ManualPersonSheet(
+            onDismiss = { editingPerson = null },
+            initialName = person.name,
+            initialPhone = person.phone.orEmpty(),
+            initialEmail = person.email.orEmpty(),
+            title = stringResource(R.string.edit_person),
+            onSave = { name, phone, email ->
+                handlePersonUpdate(person, name, phone, email)
+            }
+        )
+    }
+
+    deletingPerson?.let { person ->
+        DeletePersonDialog(
+            personName = person.name,
+            onDismiss = { deletingPerson = null },
+            onConfirm = { confirmDelete(person) }
+        )
     }
 }
 

@@ -10,11 +10,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -22,7 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import com.example.expensetracker.R
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -55,7 +64,8 @@ fun GroupedPersonList(
         end = 16.dp,
         bottom = 88.dp
     ),
-    onPersonClick: (Person) -> Unit = {}
+    onPersonClick: (Person) -> Unit = {},
+    onPersonMoreClick: (Person) -> Unit = {}
 ) {
     val sections = remember(persons) {
         groupPersonsByLetter(persons)
@@ -98,12 +108,27 @@ fun GroupedPersonList(
                             leadingContent = {
                                 PersonAvatar(person)
                             },
+                            trailingContent = {
+                                    IconButton(
+                                        onClick = { onPersonMoreClick(person) },
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = stringResource(R.string.more_actions)
+                                        )
+                                    }
+                                },
                             content = {
                                 Text(
                                     text = person.name,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
-                            }
+                            },
+                            supportingContent = {
+                                val detail = person.phone ?: person.email
+                                if (detail != null) Text(detail)
+                            },
                         )
                     }
                 }
@@ -130,12 +155,14 @@ private fun PersonSectionHeader(
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PersonAvatar(
+internal fun PersonAvatar(
     person: Person,
     modifier: Modifier = Modifier
 ) {
     val photoUri = person.photoUri
+    val shape = MaterialShapes.Cookie12Sided.toShape()
 
     if (photoUri != null) {
         AsyncImage(
@@ -143,7 +170,7 @@ private fun PersonAvatar(
             contentDescription = "${person.name} profile picture",
             modifier = modifier
                 .size(48.dp)
-                .clip(CircleShape),
+                .clip(shape),
             contentScale = ContentScale.Crop
         )
     } else {
@@ -156,7 +183,7 @@ private fun PersonAvatar(
 
         Surface(
             modifier = modifier.size(48.dp),
-            shape = CircleShape,
+            shape = shape,
             color = avatarColorForName(person.name)
         ) {
             Box(
@@ -164,7 +191,7 @@ private fun PersonAvatar(
             ) {
                 Text(
                     text = initial,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
@@ -195,7 +222,7 @@ private fun groupPersonsByLetter(
         }
 }
 
-private fun avatarColorForName(name: String): Color {
+internal fun avatarColorForName(name: String): Color {
     if (name.isBlank()) {
         return AvatarColors.first()
     }

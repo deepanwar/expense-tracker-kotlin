@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -37,6 +41,79 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.expensetracker.R
 import com.example.expensetracker.model.ImportedContact
+import com.example.expensetracker.model.Person
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PersonActionsSheet(
+    person: Person,
+    onDismiss: () -> Unit,
+    onView: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        ) {
+            Text(
+                text = person.name,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+
+            PersonOptionRow(
+                title = stringResource(R.string.view),
+                icon = Icons.Filled.Visibility,
+                onClick = onView
+            )
+            PersonOptionRow(
+                title = stringResource(R.string.edit),
+                icon = Icons.Filled.Edit,
+                onClick = onEdit
+            )
+            PersonOptionRow(
+                title = stringResource(R.string.delete),
+                icon = Icons.Filled.Delete,
+                onClick = onDelete
+            )
+        }
+    }
+}
+
+@Composable
+fun DeletePersonDialog(
+    personName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = stringResource(R.string.delete_person))
+        },
+        text = {
+            Text(text = stringResource(R.string.delete_person_message, personName))
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(text = stringResource(R.string.delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
