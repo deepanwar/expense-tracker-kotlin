@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +34,8 @@ import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.ui.components.ScreenLoadingIndicator
+import com.example.expensetracker.ui.components.SimpleSearchBar
 import com.example.expensetracker.util.ContactReader
 import kotlinx.coroutines.launch
 
@@ -64,7 +69,13 @@ fun PersonsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val persons by viewModel.persons.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val persons = uiState.persons
+    val searchTextFieldState = rememberTextFieldState()
+    val searchBarState = rememberSearchBarState()
+    val filteredPersons = remember(persons, searchTextFieldState.text) {
+        persons.filterByQuery(searchTextFieldState.text.toString())
+    }
     var addStep by remember { mutableStateOf<PersonAddStep?>(null) }
     var selectedPersonId by remember { mutableStateOf<Long?>(null) }
     var actionsPerson by remember { mutableStateOf<Person?>(null) }
@@ -190,20 +201,46 @@ fun PersonsScreen(
             }
         )
     } else {
-        Box(modifier = modifier.fillMaxSize()) {
-            if (persons.isEmpty()) {
-                EmptyPersonsState(modifier = Modifier.align(Alignment.Center))
-            } else {
-                GroupedPersonList(
+        Column(modifier = modifier.fillMaxSize()) {
+            SimpleSearchBar(
+                textFieldState = searchTextFieldState,
+                searchBarState = searchBarState,
+                placeholder = stringResource(R.string.search_persons),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                PersonListContent(
+                    isLoading = uiState.isLoading,
                     persons = persons,
+                    filteredPersons = filteredPersons,
                     onPersonClick = { person ->
-                        selectedPersonId = person.id
+                        scope.launch {
+                            searchBarState.animateToCollapsed()
+                            selectedPersonId = person.id
+                        }
                     },
                     onPersonMoreClick = { person ->
-                        actionsPerson = person
+                        scope.launch {
+                            searchBarState.animateToCollapsed()
+                            actionsPerson = person
+                        }
                     }
                 )
             }
+
+            PersonListContent(
+                isLoading = uiState.isLoading,
+                persons = persons,
+                filteredPersons = filteredPersons,
+                onPersonClick = { person ->
+                    selectedPersonId = person.id
+                },
+                onPersonMoreClick = { person ->
+                    actionsPerson = person
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 
@@ -297,6 +334,50 @@ fun PersonsScreen(
 }
 
 @Composable
+private fun PersonListContent(
+    isLoading: Boolean,
+    persons: List<Person>,
+    filteredPersons: List<Person>,
+    onPersonClick: (Person) -> Unit,
+    onPersonMoreClick: (Person) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        when {
+            isLoading -> {
+                ScreenLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+
+            persons.isEmpty() -> {
+                EmptyPersonsState(modifier = Modifier.align(Alignment.Center))
+            }
+
+            filteredPersons.isEmpty() -> {
+                EmptySearchState(modifier = Modifier.align(Alignment.Center))
+            }
+
+            else -> {
+                GroupedPersonList(
+                    persons = filteredPersons,
+                    onPersonClick = onPersonClick,
+                    onPersonMoreClick = onPersonMoreClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptySearchState(modifier: Modifier = Modifier) {
+    Text(
+        text = stringResource(R.string.no_matching_persons),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(32.dp)
+    )
+}
+
+@Composable
 private fun EmptyPersonsState(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(32.dp),
@@ -313,5 +394,15 @@ private fun EmptyPersonsState(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+private fun List<Person>.filterByQuery(query: String): List<Person> {
+    val needle = query.trim()
+    if (needle.isEmpty()) return this
+    return filter { person ->
+        person.name.contains(needle, ignoreCase = true) ||
+            person.phone?.contains(needle, ignoreCase = true) == true ||
+            person.email?.contains(needle, ignoreCase = true) == true
     }
 }

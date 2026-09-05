@@ -9,17 +9,24 @@ import com.example.expensetracker.model.Person
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+data class PersonsUiState(
+    val isLoading: Boolean = true,
+    val persons: List<Person> = emptyList()
+)
 
 class PersonsViewModel(
     private val personRepository: PersonRepository
 ) : ViewModel() {
-    val persons: StateFlow<List<Person>> = personRepository.observeAllPersons()
+    val uiState: StateFlow<PersonsUiState> = personRepository.observeAllPersons()
+        .map { persons -> PersonsUiState(isLoading = false, persons = persons) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList()
+            initialValue = PersonsUiState()
         )
 
     fun observePerson(id: Long): Flow<Person?> {

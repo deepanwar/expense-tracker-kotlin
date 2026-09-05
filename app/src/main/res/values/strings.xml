@@ -14,6 +14,12 @@
     <string name="name">Name</string>
     <string name="phone">Phone</string>
     <string name="email">Email</string>
+    <string name="search_persons">Search persons</string>
+    <string name="search_expenses">Search expenses</string>
+    <string name="search_groups">Search groups</string>
+    <string name="groups">Groups</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_matching_persons">No matching persons</string>
     <string name="no_persons_yet">No persons yet</string>
     <string name="no_persons_hint">Tap Add person to import from contacts or create manually.</string>
     <string name="contacts_permission_required">Contacts permission is required to import.</string>

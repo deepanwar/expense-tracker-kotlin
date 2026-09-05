@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.expensetracker.ui.expenses.ExpensesScreen
+import com.example.expensetracker.ui.groups.GroupsScreen
 import com.example.expensetracker.ui.persons.PersonsScreen
 import com.example.expensetracker.ui.preview.AppPreview
 import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
@@ -170,6 +172,10 @@ private fun NavContent(
             onDetailViewChanged = onPersonDetailViewChanged,
             modifier = modifier
         )
+
+        NavDestination.Expenses -> ExpensesScreen(modifier = modifier)
+
+        NavDestination.Groups -> GroupsScreen(modifier = modifier)
 
         else -> Box(
             modifier = modifier.fillMaxSize(),
