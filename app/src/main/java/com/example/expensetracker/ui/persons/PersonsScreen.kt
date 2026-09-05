@@ -18,6 +18,7 @@ import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,7 @@ fun PersonsScreen(
         persons.filterByQuery(searchTextFieldState.text.toString())
     }
     var addStep by remember { mutableStateOf<PersonAddStep?>(null) }
+    var lastHandledAddRequestCount by remember { mutableIntStateOf(addPersonRequestCount) }
     var selectedPersonId by remember { mutableStateOf<Long?>(null) }
     var actionsPerson by remember { mutableStateOf<Person?>(null) }
     var editingPerson by remember { mutableStateOf<Person?>(null) }
@@ -100,7 +102,8 @@ fun PersonsScreen(
     }
 
     LaunchedEffect(addPersonRequestCount) {
-        if (addPersonRequestCount > 0) {
+        if (addPersonRequestCount > lastHandledAddRequestCount) {
+            lastHandledAddRequestCount = addPersonRequestCount
             addStep = PersonAddStep.Options
         }
     }

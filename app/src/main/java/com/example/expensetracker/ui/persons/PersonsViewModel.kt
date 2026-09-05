@@ -21,13 +21,26 @@ data class PersonsUiState(
 class PersonsViewModel(
     private val personRepository: PersonRepository
 ) : ViewModel() {
-    val uiState: StateFlow<PersonsUiState> = personRepository.observeAllPersons()
+    val uiState: StateFlow<PersonsUiState> = personRepository.observeOtherPersons()
         .map { persons -> PersonsUiState(isLoading = false, persons = persons) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = PersonsUiState()
         )
+
+    val currentUser: StateFlow<Person?> = personRepository.observeCurrentUser()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
+
+    init {
+        viewModelScope.launch {
+            personRepository.ensureCurrentUser()
+        }
+    }
 
     fun observePerson(id: Long): Flow<Person?> {
         return personRepository.observePersonById(id)
@@ -53,14 +66,12 @@ class PersonsViewModel(
 
     fun addPersonManually(name: String, phone: String?, email: String?) {
         viewModelScope.launch {
-            personRepository.insertFromImport(
-                ImportedContact(
-                    name = name,
-                    phone = phone,
-                    email = email
-                )
-            )
+            addPersonReturningId(ImportedContact(name = name, phone = phone, email = email))
         }
+    }
+
+    suspend fun addPersonReturningId(contact: ImportedContact): Long {
+        return personRepository.insertFromImport(contact)
     }
 
     suspend fun findExistingForImport(

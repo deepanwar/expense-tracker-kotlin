@@ -3,8 +3,10 @@ package com.example.expensetracker.data.repository
 import com.example.expensetracker.data.local.dao.PersonDao
 import com.example.expensetracker.data.local.toDomain
 import com.example.expensetracker.data.local.toEntity
+import com.example.expensetracker.model.CURRENT_USER_CONTACT_ID
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.isCurrentUser
 import com.example.expensetracker.util.PersonMatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,6 +16,34 @@ class PersonRepository(
 ) {
     fun observeAllPersons(): Flow<List<Person>> {
         return personDao.observeAll().map { persons -> persons.map { it.toDomain() } }
+    }
+
+    fun observeOtherPersons(): Flow<List<Person>> {
+        return observeAllPersons().map { persons -> persons.filter { !it.isCurrentUser() } }
+    }
+
+    fun observeCurrentUser(): Flow<Person?> {
+        return observeAllPersons().map { persons -> persons.firstOrNull { it.isCurrentUser() } }
+    }
+
+    suspend fun ensureCurrentUser(): Person {
+        findByContactId(CURRENT_USER_CONTACT_ID)?.let { return it }
+        val now = System.currentTimeMillis()
+        val id = insertPerson(
+            Person(
+                name = "You",
+                contactId = CURRENT_USER_CONTACT_ID,
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+        return Person(
+            id = id,
+            name = "You",
+            contactId = CURRENT_USER_CONTACT_ID,
+            createdAt = now,
+            updatedAt = now
+        )
     }
 
     fun observePersonById(id: Long): Flow<Person?> {

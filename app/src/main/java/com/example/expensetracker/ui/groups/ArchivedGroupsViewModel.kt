@@ -12,25 +12,25 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class GroupsUiState(
+data class ArchivedGroupsUiState(
     val isLoading: Boolean = true,
     val groups: List<GroupSummary> = emptyList()
 )
 
-class GroupsViewModel(
+class ArchivedGroupsViewModel(
     private val groupRepository: GroupRepository
 ) : ViewModel() {
-    val uiState: StateFlow<GroupsUiState> = groupRepository.observeActiveGroups()
-        .map { groups -> GroupsUiState(isLoading = false, groups = groups) }
+    val uiState: StateFlow<ArchivedGroupsUiState> = groupRepository.observeArchivedGroups()
+        .map { groups -> ArchivedGroupsUiState(isLoading = false, groups = groups) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = GroupsUiState()
+            initialValue = ArchivedGroupsUiState()
         )
 
-    fun archiveGroup(groupId: Long) {
+    fun restoreGroup(groupId: Long) {
         viewModelScope.launch {
-            groupRepository.archiveGroup(groupId)
+            groupRepository.restoreGroup(groupId)
         }
     }
 
@@ -41,13 +41,13 @@ class GroupsViewModel(
     }
 }
 
-class GroupsViewModelFactory(
+class ArchivedGroupsViewModelFactory(
     private val groupRepository: GroupRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(GroupsViewModel::class.java)) {
-            return GroupsViewModel(groupRepository) as T
+        if (modelClass.isAssignableFrom(ArchivedGroupsViewModel::class.java)) {
+            return ArchivedGroupsViewModel(groupRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

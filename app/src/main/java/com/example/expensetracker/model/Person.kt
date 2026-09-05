@@ -11,6 +11,10 @@ data class Person(
     val updatedAt: Long = 0
 )
 
+const val CURRENT_USER_CONTACT_ID = "current_user"
+
+fun Person.isCurrentUser(): Boolean = contactId == CURRENT_USER_CONTACT_ID
+
 data class ImportedContact(
     val name: String,
     val phone: String? = null,

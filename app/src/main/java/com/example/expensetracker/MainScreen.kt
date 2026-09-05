@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -64,39 +66,51 @@ private enum class NavDestination(
 fun MainScreen(modifier: Modifier = Modifier) {
     var selectedDestination by rememberSaveable { mutableStateOf(NavDestination.Expenses) }
     var personAddRequestCount by remember { mutableIntStateOf(0) }
-    var isPersonDetailView by remember { mutableStateOf(false) }
+    var groupAddRequestCount by remember { mutableIntStateOf(0) }
+    var isDetailView by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedDestination) {
+        isDetailView = false
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         floatingActionButton = {
             AnimatedExtendedFab(
                 destination = selectedDestination,
-                visible = selectedDestination.showFab && !isPersonDetailView,
-
+                visible = selectedDestination.showFab && !isDetailView,
                 onClick = {
-                    if (selectedDestination == NavDestination.Persons) {
-                        personAddRequestCount++
+                    when (selectedDestination) {
+                        NavDestination.Persons -> personAddRequestCount++
+                        NavDestination.Groups -> groupAddRequestCount++
+                        else -> Unit
                     }
                 }
             )
         },
         floatingActionButtonPosition = FabPosition.End,
         bottomBar = {
-            ShortNavigationBar(
-                arrangement = ShortNavigationBarArrangement.EqualWeight
+            AnimatedVisibility(
+                visible = !isDetailView,
+                enter = fadeIn() + slideInVertically { it },
+                exit = fadeOut() + slideOutVertically { it }
             ) {
-                NavDestination.entries.forEach { destination ->
-                    ShortNavigationBarItem(
-                        selected = selectedDestination == destination,
-                        onClick = { selectedDestination = destination },
-                        icon = {
-                            Icon(
-                                imageVector = destination.icon,
-                                contentDescription = destination.label
-                            )
-                        },
-                        label = { Text(destination.label) }
-                    )
+                ShortNavigationBar(
+                    arrangement = ShortNavigationBarArrangement.EqualWeight
+                ) {
+                    NavDestination.entries.forEach { destination ->
+                        ShortNavigationBarItem(
+                            selected = selectedDestination == destination,
+                            onClick = { selectedDestination = destination },
+                            icon = {
+                                Icon(
+                                    imageVector = destination.icon,
+                                    contentDescription = destination.label
+                                )
+                            },
+                            label = { Text(destination.label) }
+                        )
+                    }
                 }
             }
         }
@@ -104,8 +118,9 @@ fun MainScreen(modifier: Modifier = Modifier) {
         NavContent(
             destination = selectedDestination,
             personAddRequestCount = personAddRequestCount,
-            onPersonDetailViewChanged = { isDetailView ->
-                isPersonDetailView = isDetailView
+            groupAddRequestCount = groupAddRequestCount,
+            onDetailViewChanged = { showingDetail ->
+                isDetailView = showingDetail
             },
             modifier = Modifier.padding(innerPadding)
         )
@@ -163,19 +178,24 @@ private fun AnimatedExtendedFab(
 private fun NavContent(
     destination: NavDestination,
     personAddRequestCount: Int,
-    onPersonDetailViewChanged: (Boolean) -> Unit,
+    groupAddRequestCount: Int,
+    onDetailViewChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (destination) {
         NavDestination.Persons -> PersonsScreen(
             addPersonRequestCount = personAddRequestCount,
-            onDetailViewChanged = onPersonDetailViewChanged,
+            onDetailViewChanged = onDetailViewChanged,
             modifier = modifier
         )
 
         NavDestination.Expenses -> ExpensesScreen(modifier = modifier)
 
-        NavDestination.Groups -> GroupsScreen(modifier = modifier)
+        NavDestination.Groups -> GroupsScreen(
+            addGroupRequestCount = groupAddRequestCount,
+            onDetailViewChanged = onDetailViewChanged,
+            modifier = modifier
+        )
 
         else -> Box(
             modifier = modifier.fillMaxSize(),
