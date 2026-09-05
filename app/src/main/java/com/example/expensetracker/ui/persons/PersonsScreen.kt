@@ -1,5 +1,6 @@
 package com.example.expensetracker.ui.persons
 
+import androidx.activity.compose.BackHandler
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -62,10 +63,11 @@ fun PersonsScreen(
     addPersonRequestCount: Int,
     modifier: Modifier = Modifier,
     onDetailViewChanged: (Boolean) -> Unit = {},
+    onGroupClick: (Long) -> Unit = {},
     viewModel: PersonsViewModel = viewModel(
-        factory = PersonsViewModelFactory(
-            (LocalContext.current.applicationContext as ExpenseTrackerApplication).personRepository
-        )
+        factory = (LocalContext.current.applicationContext as ExpenseTrackerApplication).let { app ->
+            PersonsViewModelFactory(app.personRepository, app.groupRepository)
+        }
     )
 ) {
     val context = LocalContext.current
@@ -110,6 +112,10 @@ fun PersonsScreen(
 
     LaunchedEffect(selectedPersonId) {
         onDetailViewChanged(selectedPersonId != null)
+    }
+
+    BackHandler(enabled = selectedPersonId != null) {
+        selectedPersonId = null
     }
 
     fun dismissFlow() {
@@ -201,7 +207,8 @@ fun PersonsScreen(
             },
             onDelete = { person ->
                 deletingPerson = person
-            }
+            },
+            onGroupClick = onGroupClick
         )
     } else {
         Column(modifier = modifier.fillMaxSize()) {

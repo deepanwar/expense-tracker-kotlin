@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.ui.groups.GroupSummaryListItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,9 +44,12 @@ fun PersonDetailScreen(
     onBack: () -> Unit,
     onEdit: (Person) -> Unit,
     onDelete: (Person) -> Unit,
+    onGroupClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val person by viewModel.observePerson(personId).collectAsStateWithLifecycle(initialValue = null)
+    val commonGroups by viewModel.observeCommonGroups(personId)
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
     )
@@ -132,6 +137,51 @@ fun PersonDetailScreen(
                         label = stringResource(R.string.email),
                         value = currentPerson.email ?: stringResource(R.string.not_available)
                     )
+                }
+
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.shared_groups),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        if (commonGroups.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.no_shared_groups),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(
+                                    ListItemDefaults.SegmentedGap
+                                )
+                            ) {
+                                commonGroups.forEachIndexed { index, summary ->
+                                    GroupSummaryListItem(
+                                        summary = summary,
+                                        index = index,
+                                        count = commonGroups.size,
+                                        onClick = { onGroupClick(summary.group.id) }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 item {

@@ -23,7 +23,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -163,15 +166,17 @@ internal fun PersonAvatar(
 ) {
     val photoUri = person.photoUri
     val shape = MaterialShapes.Cookie12Sided.toShape()
+    var imageFailed by remember(photoUri) { mutableStateOf(false) }
 
-    if (photoUri != null) {
+    if (photoUri != null && !imageFailed) {
         AsyncImage(
             model = photoUri,
             contentDescription = "${person.name} profile picture",
             modifier = modifier
                 .size(48.dp)
                 .clip(shape),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Crop,
+            onError = { imageFailed = true }
         )
     } else {
         val initial = person.name

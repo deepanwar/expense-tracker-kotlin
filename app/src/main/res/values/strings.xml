@@ -26,6 +26,7 @@
     <string name="grant_permission">Grant permission</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
+    <string name="done">Done</string>
     <string name="not_available">Not available</string>
     <string name="view">View</string>
     <string name="edit">Edit</string>
@@ -62,6 +63,8 @@
     <string name="no_groups_found">No groups found</string>
     <string name="no_groups_found_hint">Try a different group name.</string>
     <string name="my_groups">My Groups</string>
+    <string name="shared_groups">Shared Groups</string>
+    <string name="no_shared_groups">No shared groups</string>
     <string name="archived_groups">Archived groups</string>
     <string name="archive">Archive</string>
     <string name="restore">Restore</string>

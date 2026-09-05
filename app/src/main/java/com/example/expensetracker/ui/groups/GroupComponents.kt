@@ -54,37 +54,54 @@ fun GroupList(
             items = groups,
             key = { _, summary -> summary.group.id }
         ) { index, summary ->
-            SegmentedListItem(
-                selected = false,
-                onClick = { onGroupClick(summary) },
-                shapes = ListItemDefaults.segmentedShapes(
-                    index = index,
-                    count = groups.size
-                ),
-                colors = ListItemDefaults.segmentedColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                ),
-                leadingContent = {
-                    Text(
-                        text = summary.group.icon,
-                        fontSize = 24.sp
-                    )
-                },
-                content = {
-                    Text(
-                        text = summary.group.name,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                },
-                supportingContent = {
-                    Text(
-                        text = stringResource(R.string.member_count, summary.memberCount)
-                    )
-                }
+            GroupSummaryListItem(
+                summary = summary,
+                index = index,
+                count = groups.size,
+                onClick = { onGroupClick(summary) }
             )
         }
     }
+}
+
+@Composable
+fun GroupSummaryListItem(
+    summary: GroupSummary,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SegmentedListItem(
+        selected = false,
+        onClick = onClick,
+        shapes = ListItemDefaults.segmentedShapes(
+            index = index,
+            count = count
+        ),
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
+        ),
+        leadingContent = {
+            Text(
+                text = summary.group.icon,
+                fontSize = 24.sp
+            )
+        },
+        content = {
+            Text(
+                text = summary.group.name,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        },
+        supportingContent = {
+            Text(
+                text = stringResource(R.string.member_count, summary.memberCount)
+            )
+        },
+        modifier = modifier
+    )
 }
 
 @Composable

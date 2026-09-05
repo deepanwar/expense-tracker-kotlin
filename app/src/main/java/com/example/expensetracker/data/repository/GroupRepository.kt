@@ -27,6 +27,11 @@ class GroupRepository(
         return groupDao.observeArchivedSummaries().map { groups -> groups.map { it.toSummary() } }
     }
 
+    fun observeCommonGroups(personId: Long): Flow<List<GroupSummary>> {
+        return groupDao.observeCommonGroups(personId)
+            .map { groups -> groups.map { it.toSummary() } }
+    }
+
     fun observeGroupWithMembers(id: Long): Flow<GroupWithMembers?> {
         return groupDao.observeGroupWithMembers(id).map { entity -> entity?.toDomain() }
     }

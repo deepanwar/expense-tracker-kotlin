@@ -38,6 +38,21 @@ interface GroupDao {
     )
     fun observeArchivedSummaries(): Flow<List<GroupWithMemberCount>>
 
+    // ponytail: local DB is current user's; You row can be missing from group_members
+    @Query(
+        """
+        SELECT groups.*, COUNT(all_members.personId) AS memberCount
+        FROM groups
+        INNER JOIN group_members AS member
+            ON groups.id = member.groupId AND member.personId = :personId
+        LEFT JOIN group_members AS all_members ON groups.id = all_members.groupId
+        WHERE groups.archivedAt IS NULL
+        GROUP BY groups.id
+        ORDER BY groups.name COLLATE NOCASE ASC
+        """
+    )
+    fun observeCommonGroups(personId: Long): Flow<List<GroupWithMemberCount>>
+
     @Query("SELECT * FROM groups WHERE id = :id")
     fun observeById(id: Long): Flow<GroupEntity?>
 

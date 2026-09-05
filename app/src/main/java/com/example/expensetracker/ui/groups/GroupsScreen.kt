@@ -1,5 +1,6 @@
 package com.example.expensetracker.ui.groups
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,7 +59,9 @@ private sealed interface GroupsRoute {
 fun GroupsScreen(
     addGroupRequestCount: Int,
     modifier: Modifier = Modifier,
-    onDetailViewChanged: (Boolean) -> Unit = {}
+    onDetailViewChanged: (Boolean) -> Unit = {},
+    openGroupId: Long? = null,
+    onOpenGroupConsumed: () -> Unit = {}
 ) {
     val app = LocalContext.current.applicationContext as ExpenseTrackerApplication
     val groupsViewModel: GroupsViewModel = viewModel(
@@ -68,7 +71,7 @@ fun GroupsScreen(
         factory = CreateGroupViewModelFactory(app.groupRepository, app.personRepository)
     )
     val personsViewModel: PersonsViewModel = viewModel(
-        factory = PersonsViewModelFactory(app.personRepository)
+        factory = PersonsViewModelFactory(app.personRepository, app.groupRepository)
     )
     val archivedViewModel: ArchivedGroupsViewModel = viewModel(
         factory = ArchivedGroupsViewModelFactory(app.groupRepository)
@@ -80,7 +83,11 @@ fun GroupsScreen(
     val currentUser by personsViewModel.currentUser.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    var route by remember { mutableStateOf<GroupsRoute>(GroupsRoute.List) }
+    var route by remember {
+        mutableStateOf<GroupsRoute>(
+            openGroupId?.let { GroupsRoute.Details(it) } ?: GroupsRoute.List
+        )
+    }
     var showCreatePerson by remember { mutableStateOf(false) }
     var newlyCreatedPersonId by remember { mutableStateOf<Long?>(null) }
     var lastHandledAddRequestCount by remember { mutableIntStateOf(addGroupRequestCount) }
@@ -93,8 +100,32 @@ fun GroupsScreen(
         }
     }
 
+    LaunchedEffect(openGroupId) {
+        val groupId = openGroupId ?: return@LaunchedEffect
+        route = GroupsRoute.Details(groupId)
+        onOpenGroupConsumed()
+    }
+
     LaunchedEffect(route) {
         onDetailViewChanged(route !is GroupsRoute.List)
+    }
+
+    BackHandler(enabled = route !is GroupsRoute.List) {
+        route = when (val current = route) {
+            GroupsRoute.List -> current
+            GroupsRoute.Create,
+            GroupsRoute.Archived,
+            is GroupsRoute.Details -> GroupsRoute.List
+            is GroupsRoute.Edit -> GroupsRoute.Details(current.groupId)
+            is GroupsRoute.AddMembers -> {
+                val groupId = current.groupId
+                if (groupId == null) {
+                    GroupsRoute.Create
+                } else {
+                    GroupsRoute.Details(groupId)
+                }
+            }
+        }
     }
 
     when (val current = route) {

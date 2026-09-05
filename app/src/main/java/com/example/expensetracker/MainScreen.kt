@@ -68,9 +68,12 @@ fun MainScreen(modifier: Modifier = Modifier) {
     var personAddRequestCount by remember { mutableIntStateOf(0) }
     var groupAddRequestCount by remember { mutableIntStateOf(0) }
     var isDetailView by remember { mutableStateOf(false) }
+    var openGroupId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(selectedDestination) {
-        isDetailView = false
+        if (openGroupId == null) {
+            isDetailView = false
+        }
     }
 
     Scaffold(
@@ -119,6 +122,13 @@ fun MainScreen(modifier: Modifier = Modifier) {
             destination = selectedDestination,
             personAddRequestCount = personAddRequestCount,
             groupAddRequestCount = groupAddRequestCount,
+            openGroupId = openGroupId,
+            onOpenGroupConsumed = { openGroupId = null },
+            onPersonGroupClick = { groupId ->
+                openGroupId = groupId
+                isDetailView = true
+                selectedDestination = NavDestination.Groups
+            },
             onDetailViewChanged = { showingDetail ->
                 isDetailView = showingDetail
             },
@@ -179,6 +189,9 @@ private fun NavContent(
     destination: NavDestination,
     personAddRequestCount: Int,
     groupAddRequestCount: Int,
+    openGroupId: Long?,
+    onOpenGroupConsumed: () -> Unit,
+    onPersonGroupClick: (Long) -> Unit,
     onDetailViewChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -186,6 +199,7 @@ private fun NavContent(
         NavDestination.Persons -> PersonsScreen(
             addPersonRequestCount = personAddRequestCount,
             onDetailViewChanged = onDetailViewChanged,
+            onGroupClick = onPersonGroupClick,
             modifier = modifier
         )
 
@@ -194,6 +208,8 @@ private fun NavContent(
         NavDestination.Groups -> GroupsScreen(
             addGroupRequestCount = groupAddRequestCount,
             onDetailViewChanged = onDetailViewChanged,
+            openGroupId = openGroupId,
+            onOpenGroupConsumed = onOpenGroupConsumed,
             modifier = modifier
         )
 

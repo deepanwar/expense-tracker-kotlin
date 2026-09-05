@@ -3,7 +3,9 @@ package com.example.expensetracker.ui.persons
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
+import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +21,8 @@ data class PersonsUiState(
 )
 
 class PersonsViewModel(
-    private val personRepository: PersonRepository
+    private val personRepository: PersonRepository,
+    private val groupRepository: GroupRepository
 ) : ViewModel() {
     val uiState: StateFlow<PersonsUiState> = personRepository.observeOtherPersons()
         .map { persons -> PersonsUiState(isLoading = false, persons = persons) }
@@ -44,6 +47,10 @@ class PersonsViewModel(
 
     fun observePerson(id: Long): Flow<Person?> {
         return personRepository.observePersonById(id)
+    }
+
+    fun observeCommonGroups(personId: Long): Flow<List<GroupSummary>> {
+        return groupRepository.observeCommonGroups(personId)
     }
 
     fun updatePerson(person: Person) {
@@ -84,12 +91,13 @@ class PersonsViewModel(
 }
 
 class PersonsViewModelFactory(
-    private val personRepository: PersonRepository
+    private val personRepository: PersonRepository,
+    private val groupRepository: GroupRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PersonsViewModel::class.java)) {
-            return PersonsViewModel(personRepository) as T
+            return PersonsViewModel(personRepository, groupRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

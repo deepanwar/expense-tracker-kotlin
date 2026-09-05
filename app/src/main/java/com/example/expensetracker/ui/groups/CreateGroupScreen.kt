@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +68,14 @@ fun CreateGroupScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back)
                         )
+                    }
+                },
+                actions = {
+                    TextButton(
+                        onClick = { viewModel.create(onCreated) },
+                        enabled = uiState.name.isNotBlank()
+                    ) {
+                        Text(text = stringResource(R.string.done))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -137,14 +144,6 @@ fun CreateGroupScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = stringResource(R.string.add_members))
                 }
-            }
-
-            Button(
-                onClick = { viewModel.create(onCreated) },
-                enabled = uiState.name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(text = stringResource(R.string.create_group))
             }
         }
     }
