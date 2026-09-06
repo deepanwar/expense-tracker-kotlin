@@ -68,9 +68,6 @@ fun SettlementList(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
                 ),
-                overlineContent = {
-                    Text(text = listDateLabel(details.settlement.date))
-                },
                 content = {
                     Text(
                         text = stringResource(
@@ -85,10 +82,17 @@ fun SettlementList(
                     { Text(text = note) }
                 },
                 trailingContent = {
-                    Text(
-                        text = Money.formatPaise(details.settlement.amountMinorUnits),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = Money.formatPaise(details.settlement.amountMinorUnits),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = listDateLabel(details.settlement.date),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             )
         }

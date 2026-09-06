@@ -122,6 +122,7 @@
     <string name="settle_up">Settle up</string>
     <string name="record_payment">Record payment</string>
     <string name="settlements">Settlements</string>
+    <string name="settlements_with_count">Settlements (%1$d)</string>
     <string name="no_settlements_yet">No settlements yet</string>
     <string name="no_settlements_hint">Record a payment to settle a balance.</string>
     <string name="payment_note">Note</string>

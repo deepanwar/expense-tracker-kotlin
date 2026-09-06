@@ -54,6 +54,7 @@ import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.Person
 import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.model.SettlementDetails
 import com.example.expensetracker.model.isCurrentUser
 import com.example.expensetracker.ui.balances.BalanceAmountRow
 import com.example.expensetracker.ui.balances.balanceColor
@@ -211,14 +212,12 @@ fun GroupDetailsScreen(
                             modifier = Modifier.weight(1f)
                         )
 
-                        GroupDetailsTab.Settlements -> SettlementList(
+                        GroupDetailsTab.Settlements -> GroupSettlementsPane(
                             settlements = uiState.settlements,
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(
-                                start = 16.dp,
-                                end = 16.dp,
-                                bottom = 24.dp
-                            )
+                            onAddSettlement = {
+                                members.firstOrNull { !it.isCurrentUser() }?.let { settleWith = it }
+                            },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -443,6 +442,34 @@ private fun GroupExpensesPane(
             modifier = Modifier.weight(1f)
         )
 
+    }
+}
+
+@Composable
+private fun GroupSettlementsPane(
+    settlements: List<SettlementDetails>,
+    onAddSettlement: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = stringResource(R.string.settlements_with_count, settlements.size),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+        AddRowButton(
+            label = stringResource(R.string.settle_up),
+            onClick = onAddSettlement
+        )
+        SettlementList(
+            settlements = settlements,
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 24.dp
+            )
+        )
     }
 }
 
