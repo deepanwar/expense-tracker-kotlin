@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.room.Room
 import com.example.expensetracker.data.local.ExpenseTrackerDatabase
 import com.example.expensetracker.data.local.MIGRATION_1_2
+import com.example.expensetracker.data.local.MIGRATION_2_3
+import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
 
@@ -14,7 +16,7 @@ class ExpenseTrackerApplication : Application() {
             ExpenseTrackerDatabase::class.java,
             "expense_tracker.db"
         )
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
 
@@ -24,5 +26,9 @@ class ExpenseTrackerApplication : Application() {
 
     val groupRepository: GroupRepository by lazy {
         GroupRepository(database)
+    }
+
+    val expenseRepository: ExpenseRepository by lazy {
+        ExpenseRepository(database)
     }
 }

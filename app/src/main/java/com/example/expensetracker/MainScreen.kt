@@ -67,6 +67,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
     var selectedDestination by rememberSaveable { mutableStateOf(NavDestination.Expenses) }
     var personAddRequestCount by remember { mutableIntStateOf(0) }
     var groupAddRequestCount by remember { mutableIntStateOf(0) }
+    var expenseAddRequestCount by remember { mutableIntStateOf(0) }
     var isDetailView by remember { mutableStateOf(false) }
     var openGroupId by remember { mutableStateOf<Long?>(null) }
 
@@ -86,6 +87,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
                     when (selectedDestination) {
                         NavDestination.Persons -> personAddRequestCount++
                         NavDestination.Groups -> groupAddRequestCount++
+                        NavDestination.Expenses -> expenseAddRequestCount++
                         else -> Unit
                     }
                 }
@@ -122,6 +124,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
             destination = selectedDestination,
             personAddRequestCount = personAddRequestCount,
             groupAddRequestCount = groupAddRequestCount,
+            expenseAddRequestCount = expenseAddRequestCount,
             openGroupId = openGroupId,
             onOpenGroupConsumed = { openGroupId = null },
             onPersonGroupClick = { groupId ->
@@ -189,6 +192,7 @@ private fun NavContent(
     destination: NavDestination,
     personAddRequestCount: Int,
     groupAddRequestCount: Int,
+    expenseAddRequestCount: Int,
     openGroupId: Long?,
     onOpenGroupConsumed: () -> Unit,
     onPersonGroupClick: (Long) -> Unit,
@@ -203,7 +207,12 @@ private fun NavContent(
             modifier = modifier
         )
 
-        NavDestination.Expenses -> ExpensesScreen(modifier = modifier)
+        NavDestination.Expenses -> ExpensesScreen(
+            addExpenseRequestCount = expenseAddRequestCount,
+            onDetailViewChanged = onDetailViewChanged,
+            onGroupClick = onPersonGroupClick,
+            modifier = modifier
+        )
 
         NavDestination.Groups -> GroupsScreen(
             addGroupRequestCount = groupAddRequestCount,

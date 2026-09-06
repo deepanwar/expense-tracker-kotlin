@@ -35,12 +35,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
+import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
 import com.example.expensetracker.ui.components.SimpleSearchBar
+import com.example.expensetracker.ui.expenses.ExpenseFormMode
+import com.example.expensetracker.ui.expenses.ExpenseFormRoute
 import com.example.expensetracker.ui.persons.ManualPersonSheet
 import com.example.expensetracker.ui.persons.PersonsViewModel
 import com.example.expensetracker.ui.persons.PersonsViewModelFactory
@@ -53,6 +56,7 @@ private sealed interface GroupsRoute {
     data class Details(val groupId: Long) : GroupsRoute
     data class Edit(val groupId: Long) : GroupsRoute
     data class AddMembers(val groupId: Long?) : GroupsRoute
+    data class ExpenseForm(val groupId: Long, val mode: ExpenseFormMode) : GroupsRoute
 }
 
 @Composable
@@ -117,6 +121,13 @@ fun GroupsScreen(
             GroupsRoute.Archived,
             is GroupsRoute.Details -> GroupsRoute.List
             is GroupsRoute.Edit -> GroupsRoute.Details(current.groupId)
+            is GroupsRoute.ExpenseForm -> when (val mode = current.mode) {
+                is ExpenseFormMode.Edit -> {
+                    GroupsRoute.ExpenseForm(current.groupId, ExpenseFormMode.View(mode.expenseId))
+                }
+                is ExpenseFormMode.Add,
+                is ExpenseFormMode.View -> GroupsRoute.Details(current.groupId)
+            }
             is GroupsRoute.AddMembers -> {
                 val groupId = current.groupId
                 if (groupId == null) {
@@ -161,11 +172,62 @@ fun GroupsScreen(
             GroupDetailsRoute(
                 groupId = current.groupId,
                 groupRepository = app.groupRepository,
+                expenseRepository = app.expenseRepository,
                 currentUser = currentUser,
                 onBack = { route = GroupsRoute.List },
                 onEdit = { route = GroupsRoute.Edit(current.groupId) },
                 onAddMember = { route = GroupsRoute.AddMembers(current.groupId) },
+                onAddExpense = {
+                    route = GroupsRoute.ExpenseForm(
+                        groupId = current.groupId,
+                        mode = ExpenseFormMode.Add(current.groupId)
+                    )
+                },
+                onExpenseClick = { expenseId ->
+                    route = GroupsRoute.ExpenseForm(
+                        groupId = current.groupId,
+                        mode = ExpenseFormMode.View(expenseId)
+                    )
+                },
                 onArchived = { route = GroupsRoute.List },
+                modifier = modifier
+            )
+        }
+
+        is GroupsRoute.ExpenseForm -> {
+            ExpenseFormRoute(
+                mode = current.mode,
+                onBack = {
+                    route = when (val mode = current.mode) {
+                        is ExpenseFormMode.Edit -> {
+                            GroupsRoute.ExpenseForm(
+                                current.groupId,
+                                ExpenseFormMode.View(mode.expenseId)
+                            )
+                        }
+                        is ExpenseFormMode.Add,
+                        is ExpenseFormMode.View -> GroupsRoute.Details(current.groupId)
+                    }
+                },
+                onSaved = { expenseId ->
+                    route = GroupsRoute.ExpenseForm(
+                        groupId = current.groupId,
+                        mode = ExpenseFormMode.View(expenseId)
+                    )
+                },
+                onEdit = {
+                    val expenseId = when (val mode = current.mode) {
+                        is ExpenseFormMode.View -> mode.expenseId
+                        is ExpenseFormMode.Edit -> mode.expenseId
+                        is ExpenseFormMode.Add -> return@ExpenseFormRoute
+                    }
+                    route = GroupsRoute.ExpenseForm(
+                        groupId = current.groupId,
+                        mode = ExpenseFormMode.Edit(expenseId)
+                    )
+                },
+                onDeleted = { route = GroupsRoute.Details(current.groupId) },
+                onGroupClick = { route = GroupsRoute.Details(current.groupId) },
                 modifier = modifier
             )
         }
@@ -174,6 +236,7 @@ fun GroupsScreen(
             EditGroupRoute(
                 groupId = current.groupId,
                 groupRepository = app.groupRepository,
+                expenseRepository = app.expenseRepository,
                 onBack = { route = GroupsRoute.Details(current.groupId) },
                 modifier = modifier
             )
@@ -201,6 +264,7 @@ fun GroupsScreen(
                 AddMembersToGroupRoute(
                     groupId = current.groupId,
                     groupRepository = app.groupRepository,
+                    expenseRepository = app.expenseRepository,
                     persons = persons,
                     currentUser = currentUser,
                     autoSelectPersonId = newlyCreatedPersonId,
@@ -397,16 +461,19 @@ private fun EmptyGroupSearchState(modifier: Modifier = Modifier) {
 private fun GroupDetailsRoute(
     groupId: Long,
     groupRepository: GroupRepository,
+    expenseRepository: ExpenseRepository,
     currentUser: Person?,
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onAddMember: () -> Unit,
+    onAddExpense: () -> Unit,
+    onExpenseClick: (Long) -> Unit,
     onArchived: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository)
+        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
     )
     GroupDetailsScreen(
         viewModel = viewModel,
@@ -414,6 +481,8 @@ private fun GroupDetailsRoute(
         onBack = onBack,
         onEdit = onEdit,
         onAddMember = onAddMember,
+        onAddExpense = onAddExpense,
+        onExpenseClick = onExpenseClick,
         onArchived = onArchived,
         modifier = modifier
     )
@@ -423,12 +492,13 @@ private fun GroupDetailsRoute(
 private fun EditGroupRoute(
     groupId: Long,
     groupRepository: GroupRepository,
+    expenseRepository: ExpenseRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository)
+        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val group = uiState.groupWithMembers?.group
@@ -455,6 +525,7 @@ private fun EditGroupRoute(
 private fun AddMembersToGroupRoute(
     groupId: Long,
     groupRepository: GroupRepository,
+    expenseRepository: ExpenseRepository,
     persons: List<Person>,
     currentUser: Person?,
     autoSelectPersonId: Long?,
@@ -465,7 +536,7 @@ private fun AddMembersToGroupRoute(
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository)
+        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentMemberIds = uiState.groupWithMembers?.members

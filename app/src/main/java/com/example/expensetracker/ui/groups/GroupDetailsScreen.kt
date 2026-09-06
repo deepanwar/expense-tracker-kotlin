@@ -4,17 +4,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -23,7 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -33,17 +37,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
+import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.Person
 import com.example.expensetracker.model.isCurrentUser
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
+import com.example.expensetracker.ui.expenses.ExpenseList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +61,8 @@ fun GroupDetailsScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onAddMember: () -> Unit,
+    onAddExpense: () -> Unit,
+    onExpenseClick: (Long) -> Unit,
     onArchived: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -61,6 +71,7 @@ fun GroupDetailsScreen(
     var showArchiveDialog by remember { mutableStateOf(false) }
     var memberToRemove by remember { mutableStateOf<Person?>(null) }
     var viewedPerson by remember { mutableStateOf<Person?>(null) }
+    var selectedTab by rememberSaveable { mutableStateOf(GroupDetailsTab.Expenses) }
 
     val groupWithMembers = uiState.groupWithMembers
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
@@ -146,42 +157,31 @@ fun GroupDetailsScreen(
                 val members = remember(groupWithMembers.members, currentUser) {
                     groupWithMembers.members.withCurrentUserFirst(currentUser)
                 }
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(bottom = 24.dp)
+                        .padding(innerPadding)
                 ) {
-                    item {
-                        Text(
-                            text = stringResource(R.string.members_with_count, members.size),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    PrimaryIconTabs(
+                        tabs = GroupDetailsTab.entries,
+                        selectedTab = selectedTab,
+                        onTabSelected = { selectedTab = it }
+                    )
+                    when (selectedTab) {
+                        GroupDetailsTab.Expenses -> GroupExpensesPane(
+                            expenses = uiState.expenses,
+                            onExpenseClick = onExpenseClick,
+                            onAddExpense = onAddExpense,
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                    items(members, key = { it.id }) { person ->
-                        MemberListItem(
-                            person = person,
-                            onClick = { viewedPerson = person },
-                            onMoreClick = if (person.isCurrentUser()) {
-                                null
-                            } else {
-                                { memberToRemove = person }
-                            }
+
+                        GroupDetailsTab.Members -> GroupMembersPane(
+                            members = members,
+                            onPersonClick = { viewedPerson = it },
+                            onRemovePerson = { memberToRemove = it },
+                            onAddMember = onAddMember,
+                            modifier = Modifier.weight(1f)
                         )
-                    }
-                    item {
-                        TextButton(
-                            onClick = onAddMember,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Add,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = stringResource(R.string.add_member))
-                        }
                     }
                 }
             }
@@ -267,6 +267,154 @@ fun GroupDetailsScreen(
                 }
             }
         )
+    }
+}
+
+private enum class GroupDetailsTab(
+    val labelRes: Int,
+    val icon: ImageVector
+) {
+    Expenses(R.string.expenses, Icons.Filled.Receipt),
+    Members(R.string.members, Icons.Filled.Groups)
+}
+
+@Composable
+private fun PrimaryIconTabs(
+    tabs: List<GroupDetailsTab>,
+    selectedTab: GroupDetailsTab,
+    onTabSelected: (GroupDetailsTab) -> Unit
+) {
+    PrimaryTabRow(selectedTabIndex = tabs.indexOf(selectedTab)) {
+        tabs.forEach { tab ->
+            val label = stringResource(tab.labelRes)
+            Tab(
+                selected = selectedTab == tab,
+                onClick = { onTabSelected(tab) },
+                icon = {
+                    Icon(
+                        imageVector = tab.icon,
+                        contentDescription = label
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun GroupExpensesPane(
+    expenses: List<ExpenseDetails>,
+    onExpenseClick: (Long) -> Unit,
+    onAddExpense: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (expenses.isEmpty()) {
+        Column(modifier = modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(32.dp)
+                    .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.no_expenses_yet),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = stringResource(R.string.no_group_expenses_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                AddRowButton(
+                    label = stringResource(R.string.add_expense),
+                    onClick = onAddExpense
+                )
+            }
+
+        }
+        return
+    }
+
+    Column(modifier = modifier.fillMaxSize()) {
+        Text(
+            text = stringResource(R.string.expenses),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
+
+        AddRowButton(
+            label = stringResource(R.string.add_expense),
+            onClick = onAddExpense
+        )
+        ExpenseList(
+            expenses = expenses,
+            onExpenseClick = { onExpenseClick(it.expense.id) },
+            showGroupName = false,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 8.dp),
+            modifier = Modifier.weight(1f)
+        )
+
+    }
+}
+
+@Composable
+private fun GroupMembersPane(
+    members: List<Person>,
+    onPersonClick: (Person) -> Unit,
+    onRemovePerson: (Person) -> Unit,
+    onAddMember: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        item {
+            Text(
+                text = stringResource(R.string.members_with_count, members.size),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
+        item {
+            AddRowButton(
+                label = stringResource(R.string.add_member),
+                onClick = onAddMember
+            )
+        }
+        items(members, key = { it.id }) { person ->
+            MemberListItem(
+                person = person,
+                onClick = { onPersonClick(person) },
+                onMoreClick = if (person.isCurrentUser()) {
+                    null
+                } else {
+                    { onRemovePerson(person) }
+                }
+            )
+        }
+
+    }
+}
+
+@Composable
+private fun AddRowButton(
+    label: String,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Add,
+            contentDescription = null
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label)
     }
 }
 
