@@ -23,11 +23,14 @@ import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -42,6 +45,8 @@ import com.example.expensetracker.ui.balances.BalanceAmountRow
 import com.example.expensetracker.ui.balances.balanceColor
 import com.example.expensetracker.ui.balances.personBalanceHeadline
 import com.example.expensetracker.ui.groups.GroupSummaryListItem
+import com.example.expensetracker.ui.settlements.SettleUpSheet
+import com.example.expensetracker.ui.settlements.SettlementHistorySection
 import com.example.expensetracker.util.BalanceCalculator
 import com.example.expensetracker.util.Money
 
@@ -66,6 +71,15 @@ fun PersonDetailScreen(
         val userId = currentUser?.id ?: return@remember emptyList()
         uiState.expenses.filter { it.involves(personId) && it.involves(userId) }
     }
+    val personSettlements = remember(uiState.settlements, personId, currentUser?.id) {
+        val userId = currentUser?.id ?: return@remember emptyList()
+        uiState.settlements.filter { details ->
+            val from = details.settlement.fromPersonId
+            val to = details.settlement.toPersonId
+            (from == personId && to == userId) || (from == userId && to == personId)
+        }
+    }
+    var showSettleUp by remember { mutableStateOf(false) }
     val (youPaid, yourShare) = remember(personExpenses, currentUser?.id) {
         val userId = currentUser?.id ?: return@remember 0L to 0L
         BalanceCalculator.paidAndShare(personExpenses, userId)
@@ -175,6 +189,11 @@ fun PersonDetailScreen(
                             color = balanceColor(balance?.netBalance ?: 0L),
                             signed = true
                         )
+                        if (balance != null && balance.netBalance != 0L && currentUser != null) {
+                            TextButton(onClick = { showSettleUp = true }) {
+                                Text(text = stringResource(R.string.settle_up))
+                            }
+                        }
                     }
                 }
 
@@ -311,9 +330,34 @@ fun PersonDetailScreen(
                         }
                     }
                 }
+
+                item {
+                    SettlementHistorySection(settlements = personSettlements)
+                }
             }
         }
     )
+
+    val user = currentUser
+    if (showSettleUp && user != null && balance != null) {
+        SettleUpSheet(
+            currentUser = user,
+            otherPerson = currentPerson,
+            suggestedAmount = kotlin.math.abs(balance.netBalance),
+            theyPayYou = balance.netBalance > 0L,
+            onConfirm = { fromPersonId, toPersonId, amount, groupId, note, date ->
+                viewModel.recordSettlement(
+                    fromPersonId = fromPersonId,
+                    toPersonId = toPersonId,
+                    amountMinorUnits = amount,
+                    groupId = groupId,
+                    note = note,
+                    date = date
+                )
+            },
+            onDismiss = { showSettleUp = false }
+        )
+    }
 }
 
 @Composable

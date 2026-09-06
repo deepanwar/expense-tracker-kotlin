@@ -4,39 +4,44 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.example.expensetracker.model.SplitMethod
 
 @Entity(
-    tableName = "expenses",
+    tableName = "settlements",
     foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["fromPersonId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["toPersonId"],
+            onDelete = ForeignKey.CASCADE
+        ),
         ForeignKey(
             entity = GroupEntity::class,
             parentColumns = ["id"],
             childColumns = ["groupId"],
             onDelete = ForeignKey.SET_NULL
-        ),
-        ForeignKey(
-            entity = PersonEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["payerId"],
-            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [
+        Index("fromPersonId"),
+        Index("toPersonId"),
         Index("groupId"),
-        Index("payerId"),
         Index("date")
     ]
 )
-data class ExpenseEntity(
+data class SettlementEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val description: String,
+    val fromPersonId: Long,
+    val toPersonId: Long,
     val amountMinorUnits: Long,
-    val date: Long,
     val groupId: Long? = null,
-    val payerId: Long,
-    val splitMethod: String = SplitMethod.EQUAL.name,
-    val createdAt: Long,
-    val updatedAt: Long
+    val note: String? = null,
+    val date: Long,
+    val createdAt: Long
 )

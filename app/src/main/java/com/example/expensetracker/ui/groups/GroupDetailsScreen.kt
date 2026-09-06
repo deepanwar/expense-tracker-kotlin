@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -59,6 +60,8 @@ import com.example.expensetracker.ui.balances.balanceColor
 import com.example.expensetracker.ui.balances.groupNetLabel
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
 import com.example.expensetracker.ui.expenses.ExpenseList
+import com.example.expensetracker.ui.settlements.SettleUpSheet
+import com.example.expensetracker.ui.settlements.SettlementList
 import com.example.expensetracker.util.BalanceCalculator
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +82,7 @@ fun GroupDetailsScreen(
     var showArchiveDialog by remember { mutableStateOf(false) }
     var memberToRemove by remember { mutableStateOf<Person?>(null) }
     var viewedPerson by remember { mutableStateOf<Person?>(null) }
+    var settleWith by remember { mutableStateOf<Person?>(null) }
     var selectedTab by rememberSaveable { mutableStateOf(GroupDetailsTab.Expenses) }
 
     val groupWithMembers = uiState.groupWithMembers
@@ -206,6 +210,16 @@ fun GroupDetailsScreen(
                             onAddMember = onAddMember,
                             modifier = Modifier.weight(1f)
                         )
+
+                        GroupDetailsTab.Settlements -> SettlementList(
+                            settlements = uiState.settlements,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = 24.dp
+                            )
+                        )
                     }
                 }
             }
@@ -286,10 +300,57 @@ fun GroupDetailsScreen(
                 }
             },
             confirmButton = {
+                val memberBalance = uiState.groupBalance?.personBalances
+                    ?.firstOrNull { it.personId == person.id }
+                if (
+                    currentUser != null &&
+                    !person.isCurrentUser() &&
+                    memberBalance != null &&
+                    memberBalance.netBalance != 0L
+                ) {
+                    TextButton(
+                        onClick = {
+                            viewedPerson = null
+                            settleWith = person
+                        }
+                    ) {
+                        Text(text = stringResource(R.string.settle_up))
+                    }
+                } else {
+                    TextButton(onClick = { viewedPerson = null }) {
+                        Text(text = stringResource(R.string.cancel))
+                    }
+                }
+            },
+            dismissButton = {
                 TextButton(onClick = { viewedPerson = null }) {
-                    Text(text = stringResource(R.string.cancel))
+                    Text(text = stringResource(R.string.close))
                 }
             }
+        )
+    }
+
+    val settlePerson = settleWith
+    val settleBalance = settlePerson?.let { person ->
+        uiState.groupBalance?.personBalances?.firstOrNull { it.personId == person.id }
+    }
+    if (settlePerson != null && currentUser != null && settleBalance != null) {
+        SettleUpSheet(
+            currentUser = currentUser,
+            otherPerson = settlePerson,
+            suggestedAmount = kotlin.math.abs(settleBalance.netBalance),
+            theyPayYou = settleBalance.netBalance > 0L,
+            groupId = groupWithMembers?.group?.id,
+            onConfirm = { fromPersonId, toPersonId, amount, _, note, date ->
+                viewModel.recordSettlement(
+                    fromPersonId = fromPersonId,
+                    toPersonId = toPersonId,
+                    amountMinorUnits = amount,
+                    note = note,
+                    date = date
+                )
+            },
+            onDismiss = { settleWith = null }
         )
     }
 }
@@ -299,7 +360,8 @@ private enum class GroupDetailsTab(
     val icon: ImageVector
 ) {
     Expenses(R.string.expenses, Icons.Filled.Receipt),
-    Members(R.string.members, Icons.Filled.Groups)
+    Members(R.string.members, Icons.Filled.Groups),
+    Settlements(R.string.settlements, Icons.Filled.Payments)
 }
 
 @Composable

@@ -5,10 +5,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
+import com.example.expensetracker.data.repository.SettlementRepository
 import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.Group
 import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.GroupWithMembers
+import com.example.expensetracker.model.SettlementDetails
 import com.example.expensetracker.model.isCurrentUser
 import com.example.expensetracker.util.BalanceCalculator
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,18 +23,21 @@ data class GroupDetailsUiState(
     val isLoading: Boolean = true,
     val groupWithMembers: GroupWithMembers? = null,
     val expenses: List<ExpenseDetails> = emptyList(),
+    val settlements: List<SettlementDetails> = emptyList(),
     val groupBalance: GroupBalance? = null
 )
 
 class GroupDetailsViewModel(
     private val groupId: Long,
     private val groupRepository: GroupRepository,
-    expenseRepository: ExpenseRepository
+    expenseRepository: ExpenseRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModel() {
     val uiState: StateFlow<GroupDetailsUiState> = combine(
         groupRepository.observeGroupWithMembers(groupId),
-        expenseRepository.observeByGroup(groupId)
-    ) { group, expenses ->
+        expenseRepository.observeByGroup(groupId),
+        settlementRepository.observeByGroup(groupId)
+    ) { group, expenses, settlements ->
         val currentUserId = group?.members?.firstOrNull { it.isCurrentUser() }?.id
             ?: expenses.firstNotNullOfOrNull { details ->
                 when {
@@ -45,6 +50,7 @@ class GroupDetailsViewModel(
         } else {
             BalanceCalculator.calculateGroupBalance(
                 expenses = expenses,
+                settlements = settlements,
                 currentUserId = currentUserId,
                 groupId = groupId,
                 extraPeople = group.members
@@ -54,6 +60,7 @@ class GroupDetailsViewModel(
             isLoading = false,
             groupWithMembers = group,
             expenses = expenses,
+            settlements = settlements,
             groupBalance = groupBalance
         )
     }.stateIn(
@@ -61,6 +68,25 @@ class GroupDetailsViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = GroupDetailsUiState()
     )
+
+    fun recordSettlement(
+        fromPersonId: Long,
+        toPersonId: Long,
+        amountMinorUnits: Long,
+        note: String?,
+        date: Long
+    ) {
+        viewModelScope.launch {
+            settlementRepository.recordSettlement(
+                fromPersonId = fromPersonId,
+                toPersonId = toPersonId,
+                amountMinorUnits = amountMinorUnits,
+                groupId = groupId,
+                note = note,
+                date = date
+            )
+        }
+    }
 
     fun addMembers(personIds: Collection<Long>) {
         viewModelScope.launch {
@@ -90,12 +116,18 @@ class GroupDetailsViewModel(
 class GroupDetailsViewModelFactory(
     private val groupId: Long,
     private val groupRepository: GroupRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GroupDetailsViewModel::class.java)) {
-            return GroupDetailsViewModel(groupId, groupRepository, expenseRepository) as T
+            return GroupDetailsViewModel(
+                groupId,
+                groupRepository,
+                expenseRepository,
+                settlementRepository
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

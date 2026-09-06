@@ -7,6 +7,7 @@ data class Expense(
     val date: Long,
     val groupId: Long? = null,
     val payerId: Long,
+    val splitMethod: SplitMethod = SplitMethod.EQUAL,
     val createdAt: Long = 0,
     val updatedAt: Long = 0
 )

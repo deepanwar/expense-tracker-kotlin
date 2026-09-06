@@ -49,7 +49,11 @@ fun ExpensesScreen(
 ) {
     val app = LocalContext.current.applicationContext as ExpenseTrackerApplication
     val viewModel: ExpensesViewModel = viewModel(
-        factory = ExpensesViewModelFactory(app.expenseRepository, app.personRepository)
+        factory = ExpensesViewModelFactory(
+            app.expenseRepository,
+            app.personRepository,
+            app.settlementRepository
+        )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 

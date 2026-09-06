@@ -37,6 +37,7 @@ import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
+import com.example.expensetracker.data.repository.SettlementRepository
 import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
@@ -70,13 +71,23 @@ fun GroupsScreen(
 ) {
     val app = LocalContext.current.applicationContext as ExpenseTrackerApplication
     val groupsViewModel: GroupsViewModel = viewModel(
-        factory = GroupsViewModelFactory(app.groupRepository, app.expenseRepository, app.personRepository)
+        factory = GroupsViewModelFactory(
+            app.groupRepository,
+            app.expenseRepository,
+            app.personRepository,
+            app.settlementRepository
+        )
     )
     val createViewModel: CreateGroupViewModel = viewModel(
         factory = CreateGroupViewModelFactory(app.groupRepository, app.personRepository)
     )
     val personsViewModel: PersonsViewModel = viewModel(
-        factory = PersonsViewModelFactory(app.personRepository, app.groupRepository, app.expenseRepository)
+        factory = PersonsViewModelFactory(
+            app.personRepository,
+            app.groupRepository,
+            app.expenseRepository,
+            app.settlementRepository
+        )
     )
     val archivedViewModel: ArchivedGroupsViewModel = viewModel(
         factory = ArchivedGroupsViewModelFactory(app.groupRepository)
@@ -174,6 +185,7 @@ fun GroupsScreen(
                 groupId = current.groupId,
                 groupRepository = app.groupRepository,
                 expenseRepository = app.expenseRepository,
+                settlementRepository = app.settlementRepository,
                 currentUser = currentUser,
                 onBack = { route = GroupsRoute.List },
                 onEdit = { route = GroupsRoute.Edit(current.groupId) },
@@ -238,6 +250,7 @@ fun GroupsScreen(
                 groupId = current.groupId,
                 groupRepository = app.groupRepository,
                 expenseRepository = app.expenseRepository,
+                settlementRepository = app.settlementRepository,
                 onBack = { route = GroupsRoute.Details(current.groupId) },
                 modifier = modifier
             )
@@ -266,6 +279,7 @@ fun GroupsScreen(
                     groupId = current.groupId,
                     groupRepository = app.groupRepository,
                     expenseRepository = app.expenseRepository,
+                    settlementRepository = app.settlementRepository,
                     persons = persons,
                     currentUser = currentUser,
                     autoSelectPersonId = newlyCreatedPersonId,
@@ -467,6 +481,7 @@ private fun GroupDetailsRoute(
     groupId: Long,
     groupRepository: GroupRepository,
     expenseRepository: ExpenseRepository,
+    settlementRepository: SettlementRepository,
     currentUser: Person?,
     onBack: () -> Unit,
     onEdit: () -> Unit,
@@ -478,7 +493,12 @@ private fun GroupDetailsRoute(
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
+        factory = GroupDetailsViewModelFactory(
+            groupId,
+            groupRepository,
+            expenseRepository,
+            settlementRepository
+        )
     )
     GroupDetailsScreen(
         viewModel = viewModel,
@@ -498,12 +518,18 @@ private fun EditGroupRoute(
     groupId: Long,
     groupRepository: GroupRepository,
     expenseRepository: ExpenseRepository,
+    settlementRepository: SettlementRepository,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
+        factory = GroupDetailsViewModelFactory(
+            groupId,
+            groupRepository,
+            expenseRepository,
+            settlementRepository
+        )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val group = uiState.groupWithMembers?.group
@@ -531,6 +557,7 @@ private fun AddMembersToGroupRoute(
     groupId: Long,
     groupRepository: GroupRepository,
     expenseRepository: ExpenseRepository,
+    settlementRepository: SettlementRepository,
     persons: List<Person>,
     currentUser: Person?,
     autoSelectPersonId: Long?,
@@ -541,7 +568,12 @@ private fun AddMembersToGroupRoute(
 ) {
     val viewModel: GroupDetailsViewModel = viewModel(
         key = "group-$groupId",
-        factory = GroupDetailsViewModelFactory(groupId, groupRepository, expenseRepository)
+        factory = GroupDetailsViewModelFactory(
+            groupId,
+            groupRepository,
+            expenseRepository,
+            settlementRepository
+        )
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentMemberIds = uiState.groupWithMembers?.members

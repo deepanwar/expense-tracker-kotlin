@@ -64,13 +64,8 @@ fun ExpenseDetailScreen(
         AddEditExpenseViewModel.participantPool(uiState)
     }
     val selectedAmount = Money.parseRupeesToPaise(uiState.amountText)
-    val shares = remember(selectedAmount, uiState.selectedParticipantIds, uiState.currentUser?.id) {
-        val amount = selectedAmount
-        if (amount == null || amount <= 0L || uiState.selectedParticipantIds.isEmpty()) {
-            emptyMap()
-        } else {
-            Money.sharesFor(amount, uiState.selectedParticipantIds, uiState.currentUser?.id)
-        }
+    val shares = remember(uiState) {
+        AddEditExpenseViewModel.displayShares(uiState)
     }
     val selectedGroupLabel = when {
         uiState.groupId == null -> stringResource(R.string.no_group)
@@ -173,13 +168,12 @@ fun ExpenseDetailScreen(
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = stringResource(
-                            R.string.split_equally
-                        ) + " " + pluralStringResource(
-                            R.plurals.split_equally_people,
-                            uiState.selectedParticipantIds.size,
-                            uiState.selectedParticipantIds.size
-                        ),
+                        text = stringResource(splitMethodLabel(uiState.splitMethod)) + " · " +
+                            pluralStringResource(
+                                R.plurals.people_count,
+                                uiState.selectedParticipantIds.size,
+                                uiState.selectedParticipantIds.size
+                            ),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )

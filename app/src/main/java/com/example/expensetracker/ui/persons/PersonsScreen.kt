@@ -69,7 +69,12 @@ fun PersonsScreen(
     onGroupClick: (Long) -> Unit = {},
     viewModel: PersonsViewModel = viewModel(
         factory = (LocalContext.current.applicationContext as ExpenseTrackerApplication).let { app ->
-            PersonsViewModelFactory(app.personRepository, app.groupRepository, app.expenseRepository)
+            PersonsViewModelFactory(
+                app.personRepository,
+                app.groupRepository,
+                app.expenseRepository,
+                app.settlementRepository
+            )
         }
     )
 ) {

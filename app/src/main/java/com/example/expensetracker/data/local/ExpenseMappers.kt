@@ -5,6 +5,7 @@ import com.example.expensetracker.data.local.entity.ExpenseWithParticipants
 import com.example.expensetracker.model.Expense
 import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.ExpenseParticipant
+import com.example.expensetracker.model.SplitMethod
 
 internal fun ExpenseEntity.toDomain(): Expense {
     return Expense(
@@ -14,6 +15,7 @@ internal fun ExpenseEntity.toDomain(): Expense {
         date = date,
         groupId = groupId,
         payerId = payerId,
+        splitMethod = SplitMethod.entries.firstOrNull { it.name == splitMethod } ?: SplitMethod.EQUAL,
         createdAt = createdAt,
         updatedAt = updatedAt
     )
@@ -27,6 +29,7 @@ internal fun Expense.toEntity(): ExpenseEntity {
         date = date,
         groupId = groupId,
         payerId = payerId,
+        splitMethod = splitMethod.name,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

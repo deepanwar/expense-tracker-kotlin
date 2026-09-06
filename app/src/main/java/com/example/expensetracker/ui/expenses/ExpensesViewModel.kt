@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.PersonRepository
+import com.example.expensetracker.data.repository.SettlementRepository
 import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.OverallBalance
 import com.example.expensetracker.util.BalanceCalculator
@@ -22,12 +23,14 @@ data class ExpensesUiState(
 
 class ExpensesViewModel(
     expenseRepository: ExpenseRepository,
-    personRepository: PersonRepository
+    personRepository: PersonRepository,
+    settlementRepository: SettlementRepository
 ) : ViewModel() {
     val uiState: StateFlow<ExpensesUiState> = combine(
         expenseRepository.observeAllExpenses(),
-        personRepository.observeCurrentUser()
-    ) { expenses, user ->
+        personRepository.observeCurrentUser(),
+        settlementRepository.observeAll()
+    ) { expenses, user, settlements ->
         val listExpenses = if (user == null) {
             emptyList()
         } else {
@@ -36,7 +39,7 @@ class ExpensesViewModel(
         val overall = if (user == null) {
             OverallBalance(0, 0, 0)
         } else {
-            BalanceCalculator.calculateOverallBalance(expenses, user.id)
+            BalanceCalculator.calculateOverallBalance(expenses, settlements, user.id)
         }
         ExpensesUiState(
             isLoading = false,
@@ -58,12 +61,13 @@ class ExpensesViewModel(
 
 class ExpensesViewModelFactory(
     private val expenseRepository: ExpenseRepository,
-    private val personRepository: PersonRepository
+    private val personRepository: PersonRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ExpensesViewModel::class.java)) {
-            return ExpensesViewModel(expenseRepository, personRepository) as T
+            return ExpensesViewModel(expenseRepository, personRepository, settlementRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

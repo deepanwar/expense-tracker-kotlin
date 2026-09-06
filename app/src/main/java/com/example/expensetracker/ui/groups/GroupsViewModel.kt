@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
+import com.example.expensetracker.data.repository.SettlementRepository
 import com.example.expensetracker.model.Group
 import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.GroupSummary
@@ -25,19 +26,22 @@ data class GroupsUiState(
 class GroupsViewModel(
     private val groupRepository: GroupRepository,
     expenseRepository: ExpenseRepository,
-    personRepository: PersonRepository
+    personRepository: PersonRepository,
+    settlementRepository: SettlementRepository
 ) : ViewModel() {
     val uiState: StateFlow<GroupsUiState> = combine(
         groupRepository.observeActiveGroups(),
         expenseRepository.observeAllExpenses(),
-        personRepository.observeCurrentUser()
-    ) { groups, expenses, user ->
+        personRepository.observeCurrentUser(),
+        settlementRepository.observeAll()
+    ) { groups, expenses, user, settlements ->
         val balances = if (user == null) {
             emptyMap()
         } else {
             groups.associate { summary ->
                 summary.group.id to BalanceCalculator.calculateGroupBalance(
                     expenses = expenses,
+                    settlements = settlements,
                     currentUserId = user.id,
                     groupId = summary.group.id
                 )
@@ -70,12 +74,18 @@ class GroupsViewModel(
 class GroupsViewModelFactory(
     private val groupRepository: GroupRepository,
     private val expenseRepository: ExpenseRepository,
-    private val personRepository: PersonRepository
+    private val personRepository: PersonRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GroupsViewModel::class.java)) {
-            return GroupsViewModel(groupRepository, expenseRepository, personRepository) as T
+            return GroupsViewModel(
+                groupRepository,
+                expenseRepository,
+                personRepository,
+                settlementRepository
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

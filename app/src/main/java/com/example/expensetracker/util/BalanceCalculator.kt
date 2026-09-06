@@ -5,13 +5,16 @@ import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.OverallBalance
 import com.example.expensetracker.model.Person
 import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.model.Settlement
+import com.example.expensetracker.model.SettlementDetails
 import com.example.expensetracker.model.involves
 
 object BalanceCalculator {
     fun calculatePersonBalance(
         expenses: List<ExpenseDetails>,
         currentUserId: Long,
-        otherPersonId: Long
+        otherPersonId: Long,
+        settlements: List<Settlement> = emptyList()
     ): Long {
         var theyOweYou = 0L
         var youOweThem = 0L
@@ -22,13 +25,38 @@ object BalanceCalculator {
                 otherPersonId -> youOweThem += shareOf(details, currentUserId)
             }
         }
+        for (settlement in settlements) {
+            when {
+                settlement.fromPersonId == otherPersonId && settlement.toPersonId == currentUserId -> {
+                    theyOweYou -= settlement.amountMinorUnits
+                }
+                settlement.fromPersonId == currentUserId && settlement.toPersonId == otherPersonId -> {
+                    youOweThem -= settlement.amountMinorUnits
+                }
+            }
+        }
         return theyOweYou - youOweThem
+    }
+
+    fun calculatePersonBalance(
+        expenses: List<ExpenseDetails>,
+        settlements: List<SettlementDetails>,
+        currentUserId: Long,
+        otherPersonId: Long
+    ): Long {
+        return calculatePersonBalance(
+            expenses,
+            currentUserId,
+            otherPersonId,
+            settlements.map { it.settlement }
+        )
     }
 
     fun calculateAllPersonBalances(
         expenses: List<ExpenseDetails>,
         currentUserId: Long,
-        extraPeople: List<Person> = emptyList()
+        extraPeople: List<Person> = emptyList(),
+        settlements: List<Settlement> = emptyList()
     ): List<PersonBalance> {
         return peopleFrom(expenses, extraPeople)
             .values
@@ -36,29 +64,81 @@ object BalanceCalculator {
             .map { person ->
                 toPersonBalance(
                     person = person,
-                    net = calculatePersonBalance(expenses, currentUserId, person.id)
+                    net = calculatePersonBalance(expenses, currentUserId, person.id, settlements)
                 )
             }
+    }
+
+    fun calculateAllPersonBalances(
+        expenses: List<ExpenseDetails>,
+        settlements: List<SettlementDetails>,
+        currentUserId: Long,
+        extraPeople: List<Person> = emptyList()
+    ): List<PersonBalance> {
+        return calculateAllPersonBalances(
+            expenses = expenses,
+            currentUserId = currentUserId,
+            extraPeople = extraPeople,
+            settlements = settlements.map { it.settlement }
+        )
     }
 
     fun calculateGroupBalance(
         expenses: List<ExpenseDetails>,
         currentUserId: Long,
         groupId: Long,
-        extraPeople: List<Person> = emptyList()
+        extraPeople: List<Person> = emptyList(),
+        settlements: List<Settlement> = emptyList()
     ): GroupBalance {
         val groupExpenses = expenses.filter { it.expense.groupId == groupId }
-        val personBalances = calculateAllPersonBalances(groupExpenses, currentUserId, extraPeople)
+        val groupSettlements = settlements.filter { it.groupId == groupId }
+        val personBalances = calculateAllPersonBalances(
+            expenses = groupExpenses,
+            currentUserId = currentUserId,
+            extraPeople = extraPeople,
+            settlements = groupSettlements
+        )
         return toGroupBalance(groupId, personBalances)
+    }
+
+    fun calculateGroupBalance(
+        expenses: List<ExpenseDetails>,
+        settlements: List<SettlementDetails>,
+        currentUserId: Long,
+        groupId: Long,
+        extraPeople: List<Person> = emptyList()
+    ): GroupBalance {
+        return calculateGroupBalance(
+            expenses = expenses,
+            currentUserId = currentUserId,
+            groupId = groupId,
+            extraPeople = extraPeople,
+            settlements = settlements.map { it.settlement }
+        )
     }
 
     fun calculateOverallBalance(
         expenses: List<ExpenseDetails>,
         currentUserId: Long,
+        extraPeople: List<Person> = emptyList(),
+        settlements: List<Settlement> = emptyList()
+    ): OverallBalance {
+        return calculateOverallBalance(
+            calculateAllPersonBalances(expenses, currentUserId, extraPeople, settlements)
+        )
+    }
+
+    fun calculateOverallBalance(
+        expenses: List<ExpenseDetails>,
+        settlements: List<SettlementDetails>,
+        currentUserId: Long,
         extraPeople: List<Person> = emptyList()
     ): OverallBalance {
         return calculateOverallBalance(
-            calculateAllPersonBalances(expenses, currentUserId, extraPeople)
+            expenses,
+            currentUserId,
+            extraPeople,
+            settlements.map { it.settlement }
         )
     }
 

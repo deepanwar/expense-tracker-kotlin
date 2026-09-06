@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
+import com.example.expensetracker.model.SplitMethod
 import com.example.expensetracker.util.Money
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,13 +107,8 @@ fun AddEditExpenseScreen(
         AddEditExpenseViewModel.participantPool(uiState)
     }
     val selectedAmount = Money.parseRupeesToPaise(uiState.amountText)
-    val shares = remember(selectedAmount, uiState.selectedParticipantIds, uiState.currentUser?.id) {
-        val amount = selectedAmount
-        if (amount == null || amount <= 0L || uiState.selectedParticipantIds.isEmpty()) {
-            emptyMap()
-        } else {
-            Money.sharesFor(amount, uiState.selectedParticipantIds, uiState.currentUser?.id)
-        }
+    val shares = remember(uiState) {
+        AddEditExpenseViewModel.displayShares(uiState)
     }
     val selectedGroupLabel = when {
         uiState.groupId == null -> stringResource(R.string.no_group)
@@ -143,12 +139,12 @@ fun AddEditExpenseScreen(
         }
     }
     val splitText = buildAnnotatedString {
-        append(stringResource(R.string.split_equally))
-        append(" ")
+        append(stringResource(splitMethodLabel(uiState.splitMethod)))
+        append(" · ")
         withStyle(
             SpanStyle(
                 fontWeight = FontWeight.SemiBold,
-                color = if (uiState.participantsError) {
+                color = if (uiState.participantsError || uiState.splitError) {
                     MaterialTheme.colorScheme.error
                 } else {
                     MaterialTheme.colorScheme.onBackground
@@ -157,7 +153,7 @@ fun AddEditExpenseScreen(
         ) {
             append(
                 pluralStringResource(
-                    R.plurals.split_equally_people,
+                    R.plurals.people_count,
                     uiState.selectedParticipantIds.size,
                     uiState.selectedParticipantIds.size
                 )
@@ -419,6 +415,13 @@ fun AddEditExpenseScreen(
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
+                            if (uiState.splitError) {
+                                Text(
+                                    text = stringResource(splitValidationMessage(uiState.splitMethod)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }
@@ -478,9 +481,19 @@ fun AddEditExpenseScreen(
         SplitEditorSheet(
             people = participantPool,
             selectedIds = uiState.selectedParticipantIds,
+            splitMethod = uiState.splitMethod,
             shares = shares,
+            exactAmountTexts = uiState.exactAmountTexts,
+            percentageTexts = uiState.percentageTexts,
+            shareUnitTexts = uiState.shareUnitTexts,
+            totalAmount = selectedAmount,
             participantsError = uiState.participantsError,
+            splitError = uiState.splitError,
             onToggle = viewModel::toggleParticipant,
+            onSelectMethod = viewModel::selectSplitMethod,
+            onExactAmountChange = viewModel::updateExactAmount,
+            onPercentageChange = viewModel::updatePercentage,
+            onShareUnitChange = viewModel::updateShareUnit,
             onDismiss = { showSplitEditor = false }
         )
     }
@@ -542,5 +555,23 @@ private fun ExpenseFormRow(
                 )
             }
         }
+    }
+}
+
+fun splitMethodLabel(method: SplitMethod): Int {
+    return when (method) {
+        SplitMethod.EQUAL -> R.string.split_equally
+        SplitMethod.EXACT -> R.string.split_exactly
+        SplitMethod.PERCENTAGE -> R.string.split_by_percentage
+        SplitMethod.SHARES -> R.string.split_by_shares
+    }
+}
+
+fun splitValidationMessage(method: SplitMethod): Int {
+    return when (method) {
+        SplitMethod.EQUAL,
+        SplitMethod.SHARES -> R.string.split_invalid
+        SplitMethod.EXACT -> R.string.split_must_equal_amount
+        SplitMethod.PERCENTAGE -> R.string.split_must_equal_100
     }
 }

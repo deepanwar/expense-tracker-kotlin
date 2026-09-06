@@ -8,7 +8,7 @@ import com.example.expensetracker.data.local.toDomain
 import com.example.expensetracker.data.local.toEntity
 import com.example.expensetracker.model.Expense
 import com.example.expensetracker.model.ExpenseDetails
-import com.example.expensetracker.util.Money
+import com.example.expensetracker.model.SplitMethod
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -43,11 +43,10 @@ class ExpenseRepository(
         date: Long,
         groupId: Long?,
         payerId: Long,
-        participantIds: Collection<Long>,
-        currentUserId: Long?
+        splitMethod: SplitMethod,
+        shares: Map<Long, Long>
     ): Long {
         val now = System.currentTimeMillis()
-        val shares = Money.sharesFor(amountMinorUnits, participantIds, currentUserId)
         return database.withTransaction {
             val expenseId = expenseDao.insert(
                 ExpenseEntity(
@@ -56,6 +55,7 @@ class ExpenseRepository(
                     date = date,
                     groupId = groupId,
                     payerId = payerId,
+                    splitMethod = splitMethod.name,
                     createdAt = now,
                     updatedAt = now
                 )
@@ -67,11 +67,9 @@ class ExpenseRepository(
 
     suspend fun update(
         expense: Expense,
-        participantIds: Collection<Long>,
-        currentUserId: Long?
+        shares: Map<Long, Long>
     ) {
         val now = System.currentTimeMillis()
-        val shares = Money.sharesFor(expense.amountMinorUnits, participantIds, currentUserId)
         database.withTransaction {
             expenseDao.update(expense.copy(updatedAt = now).toEntity())
             expenseDao.deleteParticipants(expense.id)

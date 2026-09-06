@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
+import com.example.expensetracker.data.repository.SettlementRepository
 import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.OverallBalance
 import com.example.expensetracker.model.Person
 import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.model.SettlementDetails
 import com.example.expensetracker.util.BalanceCalculator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,30 +27,34 @@ data class PersonsUiState(
     val persons: List<Person> = emptyList(),
     val expenses: List<ExpenseDetails> = emptyList(),
     val overallBalance: OverallBalance = OverallBalance(0, 0, 0),
-    val personBalances: Map<Long, PersonBalance> = emptyMap()
+    val personBalances: Map<Long, PersonBalance> = emptyMap(),
+    val settlements: List<SettlementDetails> = emptyList()
 )
 
 class PersonsViewModel(
     private val personRepository: PersonRepository,
     private val groupRepository: GroupRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModel() {
     val uiState: StateFlow<PersonsUiState> = combine(
         personRepository.observeOtherPersons(),
         expenseRepository.observeAllExpenses(),
-        personRepository.observeCurrentUser()
-    ) { persons, expenses, user ->
+        personRepository.observeCurrentUser(),
+        settlementRepository.observeAll()
+    ) { persons, expenses, user, settlements ->
         val balances = if (user == null) {
             emptyList()
         } else {
-            BalanceCalculator.calculateAllPersonBalances(expenses, user.id, persons)
+            BalanceCalculator.calculateAllPersonBalances(expenses, settlements, user.id, persons)
         }
         PersonsUiState(
             isLoading = false,
             persons = persons,
             expenses = expenses,
             overallBalance = BalanceCalculator.calculateOverallBalance(balances),
-            personBalances = balances.associateBy { it.personId }
+            personBalances = balances.associateBy { it.personId },
+            settlements = settlements
         )
     }.stateIn(
         scope = viewModelScope,
@@ -105,6 +111,26 @@ class PersonsViewModel(
         return personRepository.insertFromImport(contact)
     }
 
+    fun recordSettlement(
+        fromPersonId: Long,
+        toPersonId: Long,
+        amountMinorUnits: Long,
+        groupId: Long?,
+        note: String?,
+        date: Long
+    ) {
+        viewModelScope.launch {
+            settlementRepository.recordSettlement(
+                fromPersonId = fromPersonId,
+                toPersonId = toPersonId,
+                amountMinorUnits = amountMinorUnits,
+                groupId = groupId,
+                note = note,
+                date = date
+            )
+        }
+    }
+
     suspend fun findExistingForImport(
         contact: ImportedContact,
         excludePersonId: Long? = null
@@ -117,12 +143,18 @@ class PersonsViewModel(
 class PersonsViewModelFactory(
     private val personRepository: PersonRepository,
     private val groupRepository: GroupRepository,
-    private val expenseRepository: ExpenseRepository
+    private val expenseRepository: ExpenseRepository,
+    private val settlementRepository: SettlementRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PersonsViewModel::class.java)) {
-            return PersonsViewModel(personRepository, groupRepository, expenseRepository) as T
+            return PersonsViewModel(
+                personRepository,
+                groupRepository,
+                expenseRepository,
+                settlementRepository
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

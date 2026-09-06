@@ -11,6 +11,7 @@ import com.example.expensetracker.model.Group
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.GroupWithMembers
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.SplitMethod
 import com.example.expensetracker.util.Money
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,11 @@ data class AddEditExpenseUiState(
     val groupId: Long? = null,
     val payerId: Long? = null,
     val selectedParticipantIds: Set<Long> = emptySet(),
+    val splitMethod: SplitMethod = SplitMethod.EQUAL,
+    val exactAmountTexts: Map<Long, String> = emptyMap(),
+    val percentageTexts: Map<Long, String> = emptyMap(),
+    val shareUnitTexts: Map<Long, String> = emptyMap(),
+    val storedShares: Map<Long, Long> = emptyMap(),
     val currentUser: Person? = null,
     val persons: List<Person> = emptyList(),
     val groups: List<GroupSummary> = emptyList(),
@@ -43,7 +49,8 @@ data class AddEditExpenseUiState(
     val existingExpense: Expense? = null,
     val descriptionError: Boolean = false,
     val amountError: Boolean = false,
-    val participantsError: Boolean = false
+    val participantsError: Boolean = false,
+    val splitError: Boolean = false
 )
 
 class AddEditExpenseViewModel(
@@ -85,12 +92,83 @@ class AddEditExpenseViewModel(
 
     fun toggleParticipant(personId: Long) {
         _uiState.update { state ->
-            val next = if (personId in state.selectedParticipantIds) {
+            val selected = personId in state.selectedParticipantIds
+            val next = if (selected) {
                 state.selectedParticipantIds - personId
             } else {
                 state.selectedParticipantIds + personId
             }
-            state.copy(selectedParticipantIds = next, participantsError = false)
+            state.copy(
+                selectedParticipantIds = next,
+                participantsError = false,
+                splitError = false,
+                exactAmountTexts = pruneOrKeep(state.exactAmountTexts, personId, selected),
+                percentageTexts = pruneOrKeep(state.percentageTexts, personId, selected),
+                shareUnitTexts = if (selected) {
+                    state.shareUnitTexts - personId
+                } else {
+                    state.shareUnitTexts + (personId to "1")
+                }
+            )
+        }
+    }
+
+    fun selectSplitMethod(method: SplitMethod) {
+        _uiState.update { state ->
+            if (state.splitMethod == method) return@update state
+            val amount = Money.parseRupeesToPaise(state.amountText)
+            val ids = state.selectedParticipantIds
+            val equalShares = if (amount != null && amount > 0L && ids.isNotEmpty()) {
+                Money.sharesFor(amount, ids, state.currentUser?.id)
+            } else {
+                emptyMap()
+            }
+            state.copy(
+                splitMethod = method,
+                splitError = false,
+                exactAmountTexts = when {
+                    method != SplitMethod.EXACT -> state.exactAmountTexts
+                    state.exactAmountTexts.isNotEmpty() -> state.exactAmountTexts
+                    else -> equalShares.mapValues { Money.paiseToInput(it.value) }
+                },
+                percentageTexts = when {
+                    method != SplitMethod.PERCENTAGE -> state.percentageTexts
+                    state.percentageTexts.isNotEmpty() -> state.percentageTexts
+                    else -> Money.percentagesFromAmounts(equalShares).mapValues { it.value.toString() }
+                },
+                shareUnitTexts = when {
+                    method != SplitMethod.SHARES -> state.shareUnitTexts
+                    state.shareUnitTexts.isNotEmpty() -> state.shareUnitTexts
+                    else -> ids.associateWith { "1" }
+                }
+            )
+        }
+    }
+
+    fun updateExactAmount(personId: Long, value: String) {
+        _uiState.update { state ->
+            state.copy(
+                exactAmountTexts = state.exactAmountTexts + (personId to value.take(16)),
+                splitError = false
+            )
+        }
+    }
+
+    fun updatePercentage(personId: Long, value: String) {
+        _uiState.update { state ->
+            state.copy(
+                percentageTexts = state.percentageTexts + (personId to value.take(4)),
+                splitError = false
+            )
+        }
+    }
+
+    fun updateShareUnit(personId: Long, value: String) {
+        _uiState.update { state ->
+            state.copy(
+                shareUnitTexts = state.shareUnitTexts + (personId to value.take(6)),
+                splitError = false
+            )
         }
     }
 
@@ -115,7 +193,16 @@ class AddEditExpenseViewModel(
             _uiState.update { it.copy(participantsError = true) }
             hasError = true
         }
-        if (hasError || payerId == null || amount == null) return
+        val shares = if (amount == null) {
+            emptyMap()
+        } else {
+            resolvedShares(state.copy(selectedParticipantIds = participants), amount)
+        }
+        if (shares == null) {
+            _uiState.update { it.copy(splitError = true) }
+            hasError = true
+        }
+        if (hasError || payerId == null || amount == null || shares == null) return
 
         viewModelScope.launch {
             val expenseId = when (val current = mode) {
@@ -125,8 +212,8 @@ class AddEditExpenseViewModel(
                     date = state.dateMillis,
                     groupId = state.groupId,
                     payerId = payerId,
-                    participantIds = participants,
-                    currentUserId = state.currentUser?.id
+                    splitMethod = state.splitMethod,
+                    shares = shares
                 )
                 is ExpenseFormMode.Edit -> {
                     val existing = state.existingExpense ?: return@launch
@@ -136,10 +223,10 @@ class AddEditExpenseViewModel(
                             amountMinorUnits = amount,
                             date = state.dateMillis,
                             groupId = state.groupId,
-                            payerId = payerId
+                            payerId = payerId,
+                            splitMethod = state.splitMethod
                         ),
-                        participantIds = participants,
-                        currentUserId = state.currentUser?.id
+                        shares = shares
                     )
                     current.expenseId
                 }
@@ -201,7 +288,24 @@ class AddEditExpenseViewModel(
                         groupId = details.expense.groupId,
                         lockedGroup = details.group,
                         payerId = details.expense.payerId,
-                        selectedParticipantIds = details.participants.map { row -> row.personId }.toSet()
+                        selectedParticipantIds = details.participants.map { row -> row.personId }.toSet(),
+                        splitMethod = details.expense.splitMethod,
+                        storedShares = details.participants.associate { row ->
+                            row.personId to row.shareMinorUnits
+                        },
+                        exactAmountTexts = details.participants.associate { row ->
+                            row.personId to Money.paiseToInput(row.shareMinorUnits)
+                        },
+                        percentageTexts = Money.percentagesFromAmounts(
+                            details.participants.associate { row ->
+                                row.personId to row.shareMinorUnits
+                            }
+                        ).mapValues { it.value.toString() },
+                        shareUnitTexts = Money.shareUnitsFromAmounts(
+                            details.participants.associate { row ->
+                                row.personId to row.shareMinorUnits
+                            }
+                        ).mapValues { it.value.toString() }
                     )
                 }
                 applyGroupSelection(details.expense.groupId, resetParticipants = false)
@@ -253,6 +357,66 @@ class AddEditExpenseViewModel(
 
         fun availableParticipantIds(state: AddEditExpenseUiState): Set<Long> {
             return participantPool(state).map { it.id }.toSet()
+        }
+
+        fun displayShares(state: AddEditExpenseUiState): Map<Long, Long> {
+            if (state.isReadOnly && state.storedShares.isNotEmpty()) {
+                return state.storedShares
+            }
+            val amount = Money.parseRupeesToPaise(state.amountText) ?: return emptyMap()
+            if (amount <= 0L || state.selectedParticipantIds.isEmpty()) return emptyMap()
+            return previewShares(state, amount)
+        }
+
+        fun resolvedShares(state: AddEditExpenseUiState, amount: Long): Map<Long, Long>? {
+            val ids = availableParticipantIds(state).intersect(state.selectedParticipantIds)
+            if (ids.isEmpty()) return null
+            return when (state.splitMethod) {
+                SplitMethod.EQUAL -> Money.sharesFor(amount, ids, state.currentUser?.id)
+                SplitMethod.EXACT -> Money.exactShares(amount, parsedExactAmounts(state, ids))
+                SplitMethod.PERCENTAGE -> Money.percentageShares(amount, parsedPercentages(state, ids))
+                SplitMethod.SHARES -> Money.unitShares(amount, parsedShareUnits(state, ids))
+                    .takeIf { it.isNotEmpty() }
+            }
+        }
+
+        fun previewShares(state: AddEditExpenseUiState, amount: Long): Map<Long, Long> {
+            val ids = state.selectedParticipantIds
+            return when (state.splitMethod) {
+                SplitMethod.EQUAL -> Money.sharesFor(amount, ids, state.currentUser?.id)
+                SplitMethod.EXACT -> parsedExactAmounts(state, ids)
+                SplitMethod.PERCENTAGE -> {
+                    Money.percentageShares(amount, parsedPercentages(state, ids))
+                        ?: emptyMap()
+                }
+                SplitMethod.SHARES -> Money.unitShares(amount, parsedShareUnits(state, ids))
+            }
+        }
+
+        fun parsedExactAmounts(state: AddEditExpenseUiState, ids: Set<Long>): Map<Long, Long> {
+            return ids.associateWith { id ->
+                Money.parseRupeesToPaise(state.exactAmountTexts[id].orEmpty()) ?: 0L
+            }
+        }
+
+        fun parsedPercentages(state: AddEditExpenseUiState, ids: Set<Long>): Map<Long, Int> {
+            return ids.associateWith { id ->
+                state.percentageTexts[id]?.trim()?.toIntOrNull() ?: 0
+            }
+        }
+
+        fun parsedShareUnits(state: AddEditExpenseUiState, ids: Set<Long>): Map<Long, Int> {
+            return ids.associateWith { id ->
+                state.shareUnitTexts[id]?.trim()?.toIntOrNull() ?: 0
+            }
+        }
+
+        private fun pruneOrKeep(
+            values: Map<Long, String>,
+            personId: Long,
+            removing: Boolean
+        ): Map<Long, String> {
+            return if (removing) values - personId else values
         }
     }
 }

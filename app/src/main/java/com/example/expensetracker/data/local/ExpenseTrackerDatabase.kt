@@ -8,11 +8,13 @@ import com.example.expensetracker.data.local.dao.ExpenseDao
 import com.example.expensetracker.data.local.dao.GroupDao
 import com.example.expensetracker.data.local.dao.GroupMemberDao
 import com.example.expensetracker.data.local.dao.PersonDao
+import com.example.expensetracker.data.local.dao.SettlementDao
 import com.example.expensetracker.data.local.entity.ExpenseEntity
 import com.example.expensetracker.data.local.entity.ExpenseParticipantEntity
 import com.example.expensetracker.data.local.entity.GroupEntity
 import com.example.expensetracker.data.local.entity.GroupMemberEntity
 import com.example.expensetracker.data.local.entity.PersonEntity
+import com.example.expensetracker.data.local.entity.SettlementEntity
 
 @Database(
     entities = [
@@ -20,9 +22,10 @@ import com.example.expensetracker.data.local.entity.PersonEntity
         GroupEntity::class,
         GroupMemberEntity::class,
         ExpenseEntity::class,
-        ExpenseParticipantEntity::class
+        ExpenseParticipantEntity::class,
+        SettlementEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class ExpenseTrackerDatabase : RoomDatabase() {
@@ -30,6 +33,7 @@ abstract class ExpenseTrackerDatabase : RoomDatabase() {
     abstract fun groupDao(): GroupDao
     abstract fun groupMemberDao(): GroupMemberDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun settlementDao(): SettlementDao
 }
 
 val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -106,5 +110,34 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL(
             "CREATE INDEX IF NOT EXISTS `index_expense_participants_personId` ON `expense_participants` (`personId`)"
         )
+    }
+}
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE `expenses` ADD COLUMN `splitMethod` TEXT NOT NULL DEFAULT 'EQUAL'"
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `settlements` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `fromPersonId` INTEGER NOT NULL,
+                `toPersonId` INTEGER NOT NULL,
+                `amountMinorUnits` INTEGER NOT NULL,
+                `groupId` INTEGER,
+                `note` TEXT,
+                `date` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                FOREIGN KEY(`fromPersonId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`toPersonId`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                FOREIGN KEY(`groupId`) REFERENCES `groups`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_settlements_fromPersonId` ON `settlements` (`fromPersonId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_settlements_toPersonId` ON `settlements` (`toPersonId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_settlements_groupId` ON `settlements` (`groupId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_settlements_date` ON `settlements` (`date`)")
     }
 }

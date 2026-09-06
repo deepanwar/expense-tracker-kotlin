@@ -5,6 +5,7 @@ import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.ExpenseParticipant
 import com.example.expensetracker.model.Group
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.Settlement
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -139,6 +140,62 @@ class BalanceCalculatorTest {
 
         assertEquals(-60_000L, BalanceCalculator.expenseDelta(dinner, you.id, rahul.id))
         assertEquals(50_000L, BalanceCalculator.expenseDelta(movie, you.id, rahul.id))
+    }
+
+    @Test
+    fun settlementReducesPairwiseDebt() {
+        val dinner = expense(
+            id = 1,
+            amount = 100_000,
+            payer = you,
+            shares = mapOf(you to 50_000, rahul to 50_000)
+        )
+        val payment = Settlement(
+            fromPersonId = rahul.id,
+            toPersonId = you.id,
+            amountMinorUnits = 20_000,
+            date = 1
+        )
+
+        assertEquals(50_000, BalanceCalculator.calculatePersonBalance(listOf(dinner), you.id, rahul.id))
+        assertEquals(
+            30_000,
+            BalanceCalculator.calculatePersonBalance(listOf(dinner), you.id, rahul.id, listOf(payment))
+        )
+    }
+
+    @Test
+    fun groupSettlementDoesNotChangeOtherGroup() {
+        val goaExpense = expense(
+            id = 1,
+            amount = 100_000,
+            payer = you,
+            shares = mapOf(you to 0, rahul to 100_000),
+            group = goa
+        )
+        val payment = Settlement(
+            fromPersonId = rahul.id,
+            toPersonId = you.id,
+            amountMinorUnits = 40_000,
+            groupId = goa.id,
+            date = 1
+        )
+
+        val goaNet = BalanceCalculator.calculateGroupBalance(
+            expenses = listOf(goaExpense),
+            currentUserId = you.id,
+            groupId = goa.id,
+            settlements = listOf(payment)
+        ).netBalance
+        val apartmentNet = BalanceCalculator.calculateGroupBalance(
+            expenses = listOf(goaExpense),
+            currentUserId = you.id,
+            groupId = apartment.id,
+            settlements = listOf(payment)
+        ).netBalance
+
+        assertEquals(60_000, goaNet)
+        assertEquals(0, apartmentNet)
     }
 
     private fun person(id: Long, name: String) = Person(id = id, name = name)
