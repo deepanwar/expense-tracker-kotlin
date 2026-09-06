@@ -4,57 +4,74 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CallSplit
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CurrencyRupee
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
-import com.example.expensetracker.model.GroupSummary
-import com.example.expensetracker.model.Person
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
-import com.example.expensetracker.ui.persons.PersonAvatar
 import com.example.expensetracker.util.Money
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,22 +81,26 @@ fun AddEditExpenseScreen(
     mode: ExpenseFormMode,
     onBack: () -> Unit,
     onSaved: (Long) -> Unit,
-    onEdit: () -> Unit,
-    onDeleted: () -> Unit,
-    onGroupClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showMenu by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showGroupPicker by remember { mutableStateOf(false) }
     var showPayerPicker by remember { mutableStateOf(false) }
+    var showSplitEditor by remember { mutableStateOf(false) }
+    val amountFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) {
+            amountFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
 
     val title = when (mode) {
-        is ExpenseFormMode.Add -> stringResource(R.string.add_expense)
         is ExpenseFormMode.Edit -> stringResource(R.string.edit_expense)
-        is ExpenseFormMode.View -> stringResource(R.string.expense)
+        else -> stringResource(R.string.add_expense)
     }
     val participantPool = remember(uiState) {
         AddEditExpenseViewModel.participantPool(uiState)
@@ -109,6 +130,41 @@ fun AddEditExpenseScreen(
     } else {
         formatExpenseDate(uiState.dateMillis)
     }
+    val paidByText = buildAnnotatedString {
+        append(stringResource(R.string.paid_by))
+        append(" ")
+        withStyle(
+            SpanStyle(
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        ) {
+            append(selectedPayer?.let { personDisplayName(it) }.orEmpty())
+        }
+    }
+    val splitText = buildAnnotatedString {
+        append(stringResource(R.string.split_equally))
+        append(" ")
+        withStyle(
+            SpanStyle(
+                fontWeight = FontWeight.SemiBold,
+                color = if (uiState.participantsError) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onBackground
+                }
+            )
+        ) {
+            append(
+                pluralStringResource(
+                    R.plurals.split_equally_people,
+                    uiState.selectedParticipantIds.size,
+                    uiState.selectedParticipantIds.size
+                )
+            )
+        }
+    }
+    val groupClickable = !uiState.groupLocked
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -117,54 +173,37 @@ fun AddEditExpenseScreen(
                 title = { Text(text = title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
-                        )
-                    }
-                },
-                actions = {
-                    if (uiState.isReadOnly) {
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.more_actions)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.edit_expense)) },
-                                    onClick = {
-                                        showMenu = false
-                                        onEdit()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.delete_expense)) },
-                                    onClick = {
-                                        showMenu = false
-                                        showDeleteDialog = true
-                                    }
-                                )
-                            }
-                        }
-                    } else if (mode is ExpenseFormMode.Add) {
-                        IconButton(
-                            onClick = { viewModel.save(onSaved) },
-                            enabled = !uiState.isLoading
-                        ) {
+                        if (mode is ExpenseFormMode.Add) {
                             Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = stringResource(R.string.done)
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.close)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back)
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
+                actions = {
+                    Button(
+                        onClick = { viewModel.save(onSaved) },
+                        enabled = !uiState.isLoading,
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.onBackground,
+                            contentColor = MaterialTheme.colorScheme.background
+                        ),
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .height(36.dp)
+                    ) {
+                        Text(text = stringResource(R.string.save))
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 ),
                 windowInsets = WindowInsets(0, 0, 0, 0)
@@ -186,119 +225,201 @@ fun AddEditExpenseScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
-                    value = uiState.description,
-                    onValueChange = viewModel::updateDescription,
-                    label = { Text(stringResource(R.string.what_was_it_for)) },
-                    isError = uiState.descriptionError,
-                    supportingText = if (uiState.descriptionError) {
-                        { Text(stringResource(R.string.description_required)) }
-                    } else {
-                        null
-                    },
-                    enabled = !uiState.isReadOnly,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Sentences
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = uiState.amountText,
-                    onValueChange = viewModel::updateAmount,
-                    label = { Text(stringResource(R.string.amount)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.CurrencyRupee,
-                            contentDescription = stringResource(R.string.amount)
-                        )
-                    },
-                    isError = uiState.amountError,
-                    supportingText = if (uiState.amountError) {
-                        { Text(stringResource(R.string.amount_required)) }
-                    } else {
-                        null
-                    },
-                    enabled = !uiState.isReadOnly,
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                SelectableField(
-                    value = dateLabel,
-                    label = stringResource(R.string.date),
-                    enabled = !uiState.isReadOnly,
-                    onClick = { showDatePicker = true }
-                )
-
-                val groupClickable = !uiState.isReadOnly && !uiState.groupLocked
-                SelectableField(
-                    value = selectedGroupLabel,
-                    label = stringResource(R.string.group),
-                    enabled = groupClickable || (uiState.isReadOnly && uiState.groupId != null),
-                    onClick = {
-                        if (uiState.isReadOnly) {
-                            uiState.groupId?.let(onGroupClick)
-                        } else if (groupClickable) {
-                            showGroupPicker = true
-                        }
-                    }
-                )
-
-                SelectableField(
-                    value = selectedPayer?.let { personDisplayName(it) }.orEmpty(),
-                    label = stringResource(R.string.paid_by),
-                    enabled = !uiState.isReadOnly,
-                    onClick = { showPayerPicker = true }
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        text = stringResource(R.string.who_shared),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.people_selected,
-                            uiState.selectedParticipantIds.size
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (uiState.participantsError) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
-                    participantPool.forEach { person ->
-                        ParticipantRow(
-                            person = person,
-                            selected = person.id in uiState.selectedParticipantIds,
-                            shareLabel = shares[person.id]?.let(Money::formatPaise),
-                            enabled = !uiState.isReadOnly,
-                            onToggle = { viewModel.toggleParticipant(person.id) }
-                        )
-                    }
-                }
-
-                if (shares.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.split_equally),
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = stringResource(R.string.amount),
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    val amountStyle = MaterialTheme.typography.displayMedium.copy(
+                        textAlign = TextAlign.Center,
+                        color = if (uiState.amountError) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onBackground
+                        }
+                    )
+                    val textMeasurer = rememberTextMeasurer()
+                    val density = LocalDensity.current
+                    val amountWidth = remember(uiState.amountText, amountStyle, density) {
+                        val measured = textMeasurer.measure(
+                            text = uiState.amountText.ifEmpty { "0" },
+                            style = amountStyle,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        with(density) { measured.size.width.toDp() + 2.dp }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.CurrencyRupee,
+                            contentDescription = stringResource(R.string.amount),
+                            modifier = Modifier.size(36.dp),
+                            tint = if (uiState.amountText.isEmpty()) {
+                                MaterialTheme.colorScheme.outline
+                            } else {
+                                amountStyle.color
+                            }
+                        )
+                        BasicTextField(
+                            value = uiState.amountText,
+                            onValueChange = viewModel::updateAmount,
+                            singleLine = true,
+                            textStyle = amountStyle,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier
+                                .width(amountWidth.coerceAtLeast(28.dp))
+                                .height(IntrinsicSize.Min)
+                                .focusRequester(amountFocusRequester),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (uiState.amountText.isEmpty()) {
+                                        Text(
+                                            text = "0",
+                                            style = amountStyle,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+                    if (uiState.amountError) {
+                        Text(
+                            text = stringResource(R.string.amount_required),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
 
-                if (mode is ExpenseFormMode.Edit) {
-                    Button(
-                        onClick = { viewModel.save(onSaved) },
-                        modifier = Modifier.fillMaxWidth()
+                ExpenseFormCard {
+                    ExpenseFormRow(
+                        icon = Icons.Filled.ReceiptLong,
+                        onClick = null
                     ) {
-                        Text(text = stringResource(R.string.save))
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(R.string.description),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (uiState.descriptionError) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            )
+                            BasicTextField(
+                                value = uiState.description,
+                                onValueChange = viewModel::updateDescription,
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    color = MaterialTheme.colorScheme.onBackground
+                                ),
+                                keyboardOptions = KeyboardOptions(
+                                    capitalization = KeyboardCapitalization.Sentences
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                decorationBox = { innerTextField ->
+                                    Box {
+                                        if (uiState.description.isEmpty()) {
+                                            Text(
+                                                text = stringResource(R.string.what_was_it_for),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = MaterialTheme.colorScheme.outline
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                            if (uiState.descriptionError) {
+                                Text(
+                                    text = stringResource(R.string.description_required),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                    ExpenseFormRow(
+                        icon = Icons.Filled.CalendarToday,
+                        onClick = { showDatePicker = true },
+                        showChevron = true
+                    ) {
+                        Text(
+                            text = dateLabel,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                    ExpenseFormRow(
+                        icon = Icons.Filled.Groups,
+                        onClick = if (groupClickable) {
+                            { showGroupPicker = true }
+                        } else {
+                            null
+                        },
+                        showChevron = groupClickable
+                    ) {
+                        Text(
+                            text = selectedGroupLabel,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
+                    ExpenseFormRow(
+                        icon = Icons.Filled.AccountBalanceWallet,
+                        onClick = { showPayerPicker = true },
+                        showChevron = true
+                    ) {
+                        Text(
+                            text = paidByText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                ExpenseFormCard {
+                    ExpenseFormRow(
+                        icon = Icons.Filled.CallSplit,
+                        onClick = { showSplitEditor = true },
+                        trailing = {
+                            Text(
+                                text = stringResource(R.string.edit),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    ) {
+                        Column {
+                            Text(
+                                text = splitText,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (uiState.participantsError) {
+                                Text(
+                                    text = stringResource(R.string.participants_required),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -330,7 +451,7 @@ fun AddEditExpenseScreen(
     }
 
     if (showGroupPicker) {
-        GroupPickerDialog(
+        GroupPickerSheet(
             groups = uiState.groups,
             selectedGroupId = uiState.groupId,
             onSelect = { groupId ->
@@ -342,7 +463,7 @@ fun AddEditExpenseScreen(
     }
 
     if (showPayerPicker) {
-        PayerPickerDialog(
+        PayerPickerSheet(
             people = participantPool,
             selectedPersonId = uiState.payerId,
             onSelect = { personId ->
@@ -353,192 +474,73 @@ fun AddEditExpenseScreen(
         )
     }
 
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text(text = stringResource(R.string.delete_expense)) },
-            text = { Text(text = stringResource(R.string.delete_expense_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        viewModel.delete(onDeleted)
-                    }
-                ) {
-                    Text(text = stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(text = stringResource(R.string.cancel))
-                }
-            }
+    if (showSplitEditor) {
+        SplitEditorSheet(
+            people = participantPool,
+            selectedIds = uiState.selectedParticipantIds,
+            shares = shares,
+            participantsError = uiState.participantsError,
+            onToggle = viewModel::toggleParticipant,
+            onDismiss = { showSplitEditor = false }
         )
     }
 }
 
 @Composable
-private fun SelectableField(
-    value: String,
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit
+private fun ExpenseFormCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
 ) {
-    Box {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            label = { Text(label) },
-            readOnly = true,
-            enabled = enabled,
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
-                    contentDescription = null
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clickable(enabled = enabled, onClick = onClick)
-        )
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(content = { content() })
     }
 }
 
 @Composable
-private fun ParticipantRow(
-    person: Person,
-    selected: Boolean,
-    shareLabel: String?,
-    enabled: Boolean,
-    onToggle: () -> Unit
+private fun ExpenseFormRow(
+    icon: ImageVector,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    showChevron: Boolean = false,
+    trailing: @Composable (() -> Unit)? = null,
+    content: @Composable () -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onToggle),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Checkbox(
-            checked = selected,
-            onCheckedChange = { if (enabled) onToggle() },
-            enabled = enabled
-        )
-        PersonAvatar(person = person)
-        Text(
-            text = personDisplayName(person),
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
-        if (selected && shareLabel != null) {
-            Text(
-                text = shareLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
             )
-        }
-    }
-}
-
-@Composable
-private fun GroupPickerDialog(
-    groups: List<GroupSummary>,
-    selectedGroupId: Long?,
-    onSelect: (Long?) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.select_group)) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 360.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                GroupChoiceRow(
-                    label = stringResource(R.string.no_group),
-                    selected = selectedGroupId == null,
-                    onClick = { onSelect(null) }
-                )
-                groups.forEach { summary ->
-                    GroupChoiceRow(
-                        label = "${summary.group.icon} ${summary.group.name}",
-                        selected = selectedGroupId == summary.group.id,
-                        onClick = { onSelect(summary.group.id) }
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Composable
-private fun GroupChoiceRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Text(text = label, style = MaterialTheme.typography.bodyLarge)
-    }
-}
-
-@Composable
-private fun PayerPickerDialog(
-    people: List<Person>,
-    selectedPersonId: Long?,
-    onSelect: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.select_payer)) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 360.dp)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                people.forEach { person ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(person.id) },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = person.id == selectedPersonId,
-                            onClick = { onSelect(person.id) }
-                        )
-                        Text(
-                            text = personDisplayName(person),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.cancel))
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            content()
+        }
+        when {
+            trailing != null -> trailing()
+            showChevron -> {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-    )
+    }
 }

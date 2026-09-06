@@ -136,16 +136,24 @@ fun ExpenseFormRoute(
             groupRepository = app.groupRepository
         )
     )
-    AddEditExpenseScreen(
-        viewModel = viewModel,
-        mode = mode,
-        onBack = onBack,
-        onSaved = onSaved,
-        onEdit = onEdit,
-        onDeleted = onDeleted,
-        onGroupClick = onGroupClick,
-        modifier = modifier
-    )
+    when (mode) {
+        is ExpenseFormMode.View -> ExpenseDetailScreen(
+            viewModel = viewModel,
+            onBack = onBack,
+            onEdit = onEdit,
+            onDeleted = onDeleted,
+            onGroupClick = onGroupClick,
+            modifier = modifier
+        )
+        is ExpenseFormMode.Add,
+        is ExpenseFormMode.Edit -> AddEditExpenseScreen(
+            viewModel = viewModel,
+            mode = mode,
+            onBack = onBack,
+            onSaved = onSaved,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable

@@ -38,6 +38,8 @@
     <string name="no_expenses_yet">No expenses yet</string>
     <string name="no_expenses_hint">Expenses with this person will show up here.</string>
     <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="description">Description</string>
     <string name="more_actions">More actions</string>
     <string name="add_group">Add group</string>
     <string name="create_group">Create group</string>
@@ -94,6 +96,10 @@
     <string name="who_shared">Who shared this expense?</string>
     <string name="people_selected">%1$d people selected</string>
     <string name="split_equally">Split equally</string>
+    <plurals name="split_equally_people">
+        <item quantity="one">equally, %d person</item>
+        <item quantity="other">equally, %d people</item>
+    </plurals>
     <string name="description_required">Description is required</string>
     <string name="amount_required">Enter an amount greater than 0</string>
     <string name="participants_required">Select at least one person</string>
