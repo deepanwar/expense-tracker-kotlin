@@ -9,7 +9,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,7 +36,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.example.expensetracker.ui.expenses.ExpensesScreen
 import com.example.expensetracker.ui.groups.GroupsScreen
 import com.example.expensetracker.ui.persons.PersonsScreen
+import com.example.expensetracker.ui.settings.SettingsScreen
 import com.example.expensetracker.ui.preview.AppPreview
 import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
 import kotlinx.coroutines.delay
@@ -222,16 +221,7 @@ private fun NavContent(
             modifier = modifier
         )
 
-        else -> Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = destination.label,
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
+        NavDestination.Settings -> SettingsScreen(modifier = modifier)
     }
 }
 

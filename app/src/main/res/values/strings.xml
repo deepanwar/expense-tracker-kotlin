@@ -113,4 +113,16 @@
     <string name="person_paid">%1$s paid</string>
     <string name="today">Today</string>
     <string name="ok">OK</string>
+    <string name="settings">Settings</string>
+    <string name="known_issues">Known issues</string>
+    <string name="add_issue">Add issue</string>
+    <string-array name="known_issue_items">
+        <item>Amount field scroll behavior</item>
+        <item>Date picker selection</item>
+        <item>Group member sync</item>
+        <item>Expense split calculation</item>
+        <item>Photo upload handling</item>
+        <item>Search performance</item>
+        <item>Export functionality</item>
+    </string-array>
 </resources>
