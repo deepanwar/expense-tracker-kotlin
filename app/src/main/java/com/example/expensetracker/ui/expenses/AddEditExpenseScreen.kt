@@ -1,6 +1,5 @@
 package com.example.expensetracker.ui.expenses
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,12 +34,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -55,7 +54,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
@@ -92,8 +90,8 @@ fun AddEditExpenseScreen(
     val amountFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    LaunchedEffect(uiState.isLoading) {
-        if (!uiState.isLoading) {
+    LaunchedEffect(uiState.isLoading, showSplitEditor) {
+        if (!uiState.isLoading && !showSplitEditor) {
             amountFocusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -162,6 +160,29 @@ fun AddEditExpenseScreen(
     }
     val groupClickable = !uiState.groupLocked
 
+    if (showSplitEditor) {
+        SplitExpenseScreen(
+            people = participantPool,
+            selectedIds = uiState.selectedParticipantIds,
+            splitMethod = uiState.splitMethod,
+            shares = shares,
+            exactAmountTexts = uiState.exactAmountTexts,
+            percentageTexts = uiState.percentageTexts,
+            shareUnitTexts = uiState.shareUnitTexts,
+            totalAmount = selectedAmount,
+            participantsError = uiState.participantsError,
+            splitError = uiState.splitError,
+            onToggle = viewModel::toggleParticipant,
+            onSelectMethod = viewModel::selectSplitMethod,
+            onExactAmountChange = viewModel::updateExactAmount,
+            onPercentageChange = viewModel::updatePercentage,
+            onShareUnitChange = viewModel::updateShareUnit,
+            onDone = { showSplitEditor = false },
+            modifier = modifier
+        )
+        return
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
@@ -188,8 +209,8 @@ fun AddEditExpenseScreen(
                         enabled = !uiState.isLoading,
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onBackground,
-                            contentColor = MaterialTheme.colorScheme.background
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         modifier = Modifier
@@ -302,21 +323,49 @@ fun AddEditExpenseScreen(
                     }
                 }
 
-                ExpenseFormCard {
-                    ExpenseFormRow(
-                        icon = Icons.Filled.ReceiptLong,
-                        onClick = null
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val formItemColors = ListItemDefaults.segmentedColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                )
+                val formItemCount = 4
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+                ) {
+                    SegmentedListItem(
+                        shapes = ListItemDefaults.segmentedShapes(
+                            index = 0,
+                            count = formItemCount
+                        ),
+                        colors = formItemColors,
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.ReceiptLong,
+                                contentDescription = null
+                            )
+                        },
+                        overlineContent = {
                             Text(
                                 text = stringResource(R.string.description),
-                                style = MaterialTheme.typography.labelMedium,
                                 color = if (uiState.descriptionError) {
                                     MaterialTheme.colorScheme.error
                                 } else {
                                     MaterialTheme.colorScheme.onSurfaceVariant
                                 }
                             )
+                        },
+                        supportingContent = if (uiState.descriptionError) {
+                            {
+                                Text(
+                                    text = stringResource(R.string.description_required),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        content = {
                             BasicTextField(
                                 value = uiState.description,
                                 onValueChange = viewModel::updateDescription,
@@ -341,90 +390,144 @@ fun AddEditExpenseScreen(
                                     }
                                 }
                             )
-                            if (uiState.descriptionError) {
-                                Text(
-                                    text = stringResource(R.string.description_required),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
+                        }
+                    )
+                    SegmentedListItem(
+                        onClick = { showDatePicker = true },
+                        shapes = ListItemDefaults.segmentedShapes(
+                            index = 1,
+                            count = formItemCount
+                        ),
+                        colors = formItemColors,
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.CalendarToday,
+                                contentDescription = null
+                            )
+                        },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        },
+                        content = {
+                            Text(
+                                text = dateLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                    SegmentedListItem(
+                        onClick = { showGroupPicker = true },
+                        enabled = groupClickable,
+                        shapes = ListItemDefaults.segmentedShapes(
+                            index = 2,
+                            count = formItemCount
+                        ),
+                        colors = formItemColors,
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.Groups,
+                                contentDescription = null
+                            )
+                        },
+                        trailingContent = if (groupClickable) {
+                            {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null
                                 )
                             }
-                        }
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
-                    ExpenseFormRow(
-                        icon = Icons.Filled.CalendarToday,
-                        onClick = { showDatePicker = true },
-                        showChevron = true
-                    ) {
-                        Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
-                    ExpenseFormRow(
-                        icon = Icons.Filled.Groups,
-                        onClick = if (groupClickable) {
-                            { showGroupPicker = true }
                         } else {
                             null
                         },
-                        showChevron = groupClickable
-                    ) {
-                        Text(
-                            text = selectedGroupLabel,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.background)
-                    ExpenseFormRow(
-                        icon = Icons.Filled.AccountBalanceWallet,
+                        content = {
+                            Text(
+                                text = selectedGroupLabel,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    )
+                    SegmentedListItem(
                         onClick = { showPayerPicker = true },
-                        showChevron = true
-                    ) {
+                        shapes = ListItemDefaults.segmentedShapes(
+                            index = 3,
+                            count = formItemCount
+                        ),
+                        colors = formItemColors,
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Filled.AccountBalanceWallet,
+                                contentDescription = null
+                            )
+                        },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null
+                            )
+                        },
+                        content = {
+                            Text(
+                                text = paidByText,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
+
+                SegmentedListItem(
+                    onClick = { showSplitEditor = true },
+                    shapes = ListItemDefaults.segmentedShapes(
+                        index = 0,
+                        count = 1
+                    ),
+                    colors = formItemColors,
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.CallSplit,
+                            contentDescription = null
+                        )
+                    },
+                    trailingContent = {
                         Text(
-                            text = paidByText,
+                            text = stringResource(R.string.edit),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    supportingContent = if (uiState.participantsError || uiState.splitError) {
+                        {
+                            Column {
+                                if (uiState.participantsError) {
+                                    Text(
+                                        text = stringResource(R.string.participants_required),
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                if (uiState.splitError) {
+                                    Text(
+                                        text = stringResource(
+                                            splitValidationMessage(uiState.splitMethod)
+                                        ),
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        null
+                    },
+                    content = {
+                        Text(
+                            text = splitText,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-
-                ExpenseFormCard {
-                    ExpenseFormRow(
-                        icon = Icons.Filled.CallSplit,
-                        onClick = { showSplitEditor = true },
-                        trailing = {
-                            Text(
-                                text = stringResource(R.string.edit),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    ) {
-                        Column {
-                            Text(
-                                text = splitText,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (uiState.participantsError) {
-                                Text(
-                                    text = stringResource(R.string.participants_required),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                            if (uiState.splitError) {
-                                Text(
-                                    text = stringResource(splitValidationMessage(uiState.splitMethod)),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                }
+                )
             }
         }
     }
@@ -477,85 +580,6 @@ fun AddEditExpenseScreen(
         )
     }
 
-    if (showSplitEditor) {
-        SplitEditorSheet(
-            people = participantPool,
-            selectedIds = uiState.selectedParticipantIds,
-            splitMethod = uiState.splitMethod,
-            shares = shares,
-            exactAmountTexts = uiState.exactAmountTexts,
-            percentageTexts = uiState.percentageTexts,
-            shareUnitTexts = uiState.shareUnitTexts,
-            totalAmount = selectedAmount,
-            participantsError = uiState.participantsError,
-            splitError = uiState.splitError,
-            onToggle = viewModel::toggleParticipant,
-            onSelectMethod = viewModel::selectSplitMethod,
-            onExactAmountChange = viewModel::updateExactAmount,
-            onPercentageChange = viewModel::updatePercentage,
-            onShareUnitChange = viewModel::updateShareUnit,
-            onDismiss = { showSplitEditor = false }
-        )
-    }
-}
-
-@Composable
-private fun ExpenseFormCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        Column(content = { content() })
-    }
-}
-
-@Composable
-private fun ExpenseFormRow(
-    icon: ImageVector,
-    onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-    showChevron: Boolean = false,
-    trailing: @Composable (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(22.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Box(modifier = Modifier.weight(1f)) {
-            content()
-        }
-        when {
-            trailing != null -> trailing()
-            showChevron -> {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
 }
 
 fun splitMethodLabel(method: SplitMethod): Int {
