@@ -35,7 +35,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
 import com.example.expensetracker.model.ImportedContact
+import com.example.expensetracker.model.OverallBalance
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.ui.balances.OverallBalanceCard
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
 import com.example.expensetracker.ui.components.SimpleSearchBar
 import com.example.expensetracker.util.ContactReader
@@ -66,7 +69,7 @@ fun PersonsScreen(
     onGroupClick: (Long) -> Unit = {},
     viewModel: PersonsViewModel = viewModel(
         factory = (LocalContext.current.applicationContext as ExpenseTrackerApplication).let { app ->
-            PersonsViewModelFactory(app.personRepository, app.groupRepository)
+            PersonsViewModelFactory(app.personRepository, app.groupRepository, app.expenseRepository)
         }
     )
 ) {
@@ -224,6 +227,7 @@ fun PersonsScreen(
                     isLoading = uiState.isLoading,
                     persons = persons,
                     filteredPersons = filteredPersons,
+                    personBalances = uiState.personBalances,
                     onPersonClick = { person ->
                         scope.launch {
                             searchBarState.animateToCollapsed()
@@ -239,10 +243,18 @@ fun PersonsScreen(
                 )
             }
 
+            if (!uiState.isLoading && (persons.isNotEmpty() || hasBalance(uiState.overallBalance))) {
+                OverallBalanceCard(
+                    balance = uiState.overallBalance,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
             PersonListContent(
                 isLoading = uiState.isLoading,
                 persons = persons,
                 filteredPersons = filteredPersons,
+                personBalances = uiState.personBalances,
                 onPersonClick = { person ->
                     selectedPersonId = person.id
                 },
@@ -348,6 +360,7 @@ private fun PersonListContent(
     isLoading: Boolean,
     persons: List<Person>,
     filteredPersons: List<Person>,
+    personBalances: Map<Long, PersonBalance>,
     onPersonClick: (Person) -> Unit,
     onPersonMoreClick: (Person) -> Unit,
     modifier: Modifier = Modifier
@@ -369,6 +382,7 @@ private fun PersonListContent(
             else -> {
                 GroupedPersonList(
                     persons = filteredPersons,
+                    personBalances = personBalances,
                     onPersonClick = onPersonClick,
                     onPersonMoreClick = onPersonMoreClick
                 )
@@ -405,6 +419,10 @@ private fun EmptyPersonsState(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun hasBalance(balance: OverallBalance): Boolean {
+    return balance.totalYouOwe != 0L || balance.totalYouAreOwed != 0L
 }
 
 private fun List<Person>.filterByQuery(query: String): List<Person> {

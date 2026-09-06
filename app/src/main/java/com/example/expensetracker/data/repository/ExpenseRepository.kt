@@ -29,6 +29,14 @@ class ExpenseRepository(
         return expenseDao.observeById(id).map { entity -> entity?.toDomain() }
     }
 
+    fun observeExpensesInvolvingPerson(personId: Long): Flow<List<ExpenseDetails>> {
+        return expenseDao.observeExpensesInvolvingPerson(personId).map { rows -> rows.map { it.toDomain() } }
+    }
+
+    fun observeAllExpenses(): Flow<List<ExpenseDetails>> {
+        return expenseDao.observeAllExpenses().map { rows -> rows.map { it.toDomain() } }
+    }
+
     suspend fun create(
         description: String,
         amountMinorUnits: Long,

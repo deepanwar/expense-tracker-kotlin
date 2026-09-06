@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,14 +45,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
 import com.example.expensetracker.model.ExpenseDetails
+import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.PersonBalance
 import com.example.expensetracker.model.isCurrentUser
+import com.example.expensetracker.ui.balances.BalanceAmountRow
+import com.example.expensetracker.ui.balances.balanceColor
+import com.example.expensetracker.ui.balances.groupNetLabel
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
 import com.example.expensetracker.ui.expenses.ExpenseList
+import com.example.expensetracker.util.BalanceCalculator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,11 +165,26 @@ fun GroupDetailsScreen(
                 val members = remember(groupWithMembers.members, currentUser) {
                     groupWithMembers.members.withCurrentUserFirst(currentUser)
                 }
+                val memberBalances = remember(uiState.groupBalance) {
+                    uiState.groupBalance?.personBalances?.associateBy { it.personId }.orEmpty()
+                }
+                val (youPaid, yourShare) = remember(uiState.expenses, currentUser?.id) {
+                    val userId = currentUser?.id ?: return@remember 0L to 0L
+                    BalanceCalculator.paidAndShare(uiState.expenses, userId)
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
+                    uiState.groupBalance?.let { groupBalance ->
+                        GroupBalanceHeader(
+                            groupBalance = groupBalance,
+                            youPaid = youPaid,
+                            yourShare = yourShare,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
                     PrimaryIconTabs(
                         tabs = GroupDetailsTab.entries,
                         selectedTab = selectedTab,
@@ -177,6 +200,7 @@ fun GroupDetailsScreen(
 
                         GroupDetailsTab.Members -> GroupMembersPane(
                             members = members,
+                            memberBalances = memberBalances,
                             onPersonClick = { viewedPerson = it },
                             onRemovePerson = { memberToRemove = it },
                             onAddMember = onAddMember,
@@ -363,6 +387,7 @@ private fun GroupExpensesPane(
 @Composable
 private fun GroupMembersPane(
     members: List<Person>,
+    memberBalances: Map<Long, PersonBalance>,
     onPersonClick: (Person) -> Unit,
     onRemovePerson: (Person) -> Unit,
     onAddMember: () -> Unit,
@@ -388,6 +413,7 @@ private fun GroupMembersPane(
         items(members, key = { it.id }) { person ->
             MemberListItem(
                 person = person,
+                balance = memberBalances[person.id],
                 onClick = { onPersonClick(person) },
                 onMoreClick = if (person.isCurrentUser()) {
                     null
@@ -415,6 +441,40 @@ private fun AddRowButton(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(text = label)
+    }
+}
+
+@Composable
+private fun GroupBalanceHeader(
+    groupBalance: GroupBalance,
+    youPaid: Long,
+    yourShare: Long,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.your_balance),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = groupNetLabel(groupBalance),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = balanceColor(groupBalance.netBalance)
+        )
+        BalanceAmountRow(
+            label = stringResource(R.string.you_paid),
+            amount = youPaid,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        BalanceAmountRow(
+            label = stringResource(R.string.your_share),
+            amount = yourShare,
+            color = MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 

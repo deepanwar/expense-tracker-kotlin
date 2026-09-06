@@ -36,6 +36,15 @@ object Money {
         return "₹${format.format(paise / 100.0)}"
     }
 
+    fun formatSignedPaise(paise: Long): String {
+        val formatted = formatPaise(kotlin.math.abs(paise))
+        return when {
+            paise > 0 -> "+$formatted"
+            paise < 0 -> "-$formatted"
+            else -> formatted
+        }
+    }
+
     fun equalShares(totalPaise: Long, count: Int): List<Long> {
         if (count <= 0) return emptyList()
         val base = totalPaise / count

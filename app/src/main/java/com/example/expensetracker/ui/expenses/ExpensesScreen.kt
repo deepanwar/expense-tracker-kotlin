@@ -29,6 +29,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
 import com.example.expensetracker.model.ExpenseDetails
+import com.example.expensetracker.model.OverallBalance
+import com.example.expensetracker.ui.balances.OverallBalanceCard
 import com.example.expensetracker.ui.components.ScreenLoadingIndicator
 import com.example.expensetracker.ui.components.SimpleSearchBar
 import kotlinx.coroutines.launch
@@ -191,6 +193,13 @@ private fun ExpensesListPane(
             )
         }
 
+        if (!uiState.isLoading && hasBalance(uiState.overallBalance)) {
+            OverallBalanceCard(
+                balance = uiState.overallBalance,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
         ExpenseListContent(
             isLoading = uiState.isLoading,
             expenses = uiState.expenses,
@@ -271,6 +280,10 @@ private fun EmptyExpenseSearchState(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun hasBalance(balance: OverallBalance): Boolean {
+    return balance.totalYouOwe != 0L || balance.totalYouAreOwed != 0L
 }
 
 private fun List<ExpenseDetails>.filterByQuery(query: String): List<ExpenseDetails> {

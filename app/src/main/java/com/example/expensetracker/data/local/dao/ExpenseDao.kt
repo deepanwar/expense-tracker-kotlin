@@ -38,6 +38,22 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE id = :id")
     fun observeById(id: Long): Flow<ExpenseWithParticipants?>
 
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM expenses
+        WHERE payerId = :personId OR id IN (
+            SELECT expenseId FROM expense_participants WHERE personId = :personId
+        )
+        ORDER BY date DESC, id DESC
+        """
+    )
+    fun observeExpensesInvolvingPerson(personId: Long): Flow<List<ExpenseWithParticipants>>
+
+    @Transaction
+    @Query("SELECT * FROM expenses ORDER BY date DESC, id DESC")
+    fun observeAllExpenses(): Flow<List<ExpenseWithParticipants>>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(expense: ExpenseEntity): Long
 

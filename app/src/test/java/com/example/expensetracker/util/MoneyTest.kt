@@ -18,6 +18,9 @@ class MoneyTest {
         assertEquals(240000L, Money.parseRupeesToPaise("2,400"))
         assertEquals("100.50", Money.paiseToInput(10050))
         assertEquals("2400", Money.paiseToInput(240000))
+        assertEquals("+₹100", Money.formatSignedPaise(10_000))
+        assertEquals("-₹50", Money.formatSignedPaise(-5_000))
+        assertEquals("₹0", Money.formatSignedPaise(0))
         assertNull(Money.parseRupeesToPaise("-10"))
         assertNull(Money.parseRupeesToPaise("abc"))
     }

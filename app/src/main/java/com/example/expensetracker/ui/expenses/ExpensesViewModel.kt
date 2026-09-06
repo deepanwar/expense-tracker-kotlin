@@ -6,39 +6,48 @@ import androidx.lifecycle.viewModelScope
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.PersonRepository
 import com.example.expensetracker.model.ExpenseDetails
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import com.example.expensetracker.model.OverallBalance
+import com.example.expensetracker.util.BalanceCalculator
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ExpensesUiState(
     val isLoading: Boolean = true,
-    val expenses: List<ExpenseDetails> = emptyList()
+    val expenses: List<ExpenseDetails> = emptyList(),
+    val overallBalance: OverallBalance = OverallBalance(0, 0, 0)
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class ExpensesViewModel(
     expenseRepository: ExpenseRepository,
     personRepository: PersonRepository
 ) : ViewModel() {
-    val uiState: StateFlow<ExpensesUiState> = personRepository.observeCurrentUser()
-        .flatMapLatest { user ->
-            if (user == null) {
-                flowOf(emptyList())
-            } else {
-                expenseRepository.observeForPerson(user.id)
-            }
+    val uiState: StateFlow<ExpensesUiState> = combine(
+        expenseRepository.observeAllExpenses(),
+        personRepository.observeCurrentUser()
+    ) { expenses, user ->
+        val listExpenses = if (user == null) {
+            emptyList()
+        } else {
+            expenses.filter { it.expense.payerId == user.id }
         }
-        .map { expenses -> ExpensesUiState(isLoading = false, expenses = expenses) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = ExpensesUiState()
+        val overall = if (user == null) {
+            OverallBalance(0, 0, 0)
+        } else {
+            BalanceCalculator.calculateOverallBalance(expenses, user.id)
+        }
+        ExpensesUiState(
+            isLoading = false,
+            expenses = listExpenses,
+            overallBalance = overall
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ExpensesUiState()
+    )
 
     init {
         viewModelScope.launch {

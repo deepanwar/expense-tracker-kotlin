@@ -3,6 +3,7 @@ package com.example.expensetracker.ui.persons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,11 +21,13 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -34,7 +37,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.expensetracker.R
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.involves
+import com.example.expensetracker.ui.balances.BalanceAmountRow
+import com.example.expensetracker.ui.balances.balanceColor
+import com.example.expensetracker.ui.balances.personBalanceHeadline
 import com.example.expensetracker.ui.groups.GroupSummaryListItem
+import com.example.expensetracker.util.BalanceCalculator
+import com.example.expensetracker.util.Money
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +59,17 @@ fun PersonDetailScreen(
     val person by viewModel.observePerson(personId).collectAsStateWithLifecycle(initialValue = null)
     val commonGroups by viewModel.observeCommonGroups(personId)
         .collectAsStateWithLifecycle(initialValue = emptyList())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val balance = uiState.personBalances[personId]
+    val personExpenses = remember(uiState.expenses, personId, currentUser?.id) {
+        val userId = currentUser?.id ?: return@remember emptyList()
+        uiState.expenses.filter { it.involves(personId) && it.involves(userId) }
+    }
+    val (youPaid, yourShare) = remember(personExpenses, currentUser?.id) {
+        val userId = currentUser?.id ?: return@remember 0L to 0L
+        BalanceCalculator.paidAndShare(personExpenses, userId)
+    }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
     )
@@ -104,7 +124,7 @@ fun PersonDetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                contentPadding = PaddingValues(
                     start = 24.dp,
                     end = 24.dp,
                     top = 16.dp,
@@ -112,19 +132,52 @@ fun PersonDetailScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                
                 item {
-                   Box(
-                       modifier = Modifier.fillMaxWidth(),
-                       contentAlignment = Alignment.Center
-                   ) {
-                       PersonAvatar(
-                           person = currentPerson,
-                           modifier = Modifier.size(120.dp)
-                       )
-                   }
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PersonAvatar(
+                            person = currentPerson,
+                            modifier = Modifier.size(120.dp)
+                        )
+                    }
                 }
-                
+
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = if (balance == null) {
+                                stringResource(R.string.settled)
+                            } else {
+                                personBalanceHeadline(balance)
+                            },
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = balanceColor(balance?.netBalance ?: 0L)
+                        )
+                        BalanceAmountRow(
+                            label = stringResource(R.string.you_paid),
+                            amount = youPaid,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        BalanceAmountRow(
+                            label = stringResource(R.string.your_share),
+                            amount = yourShare,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        BalanceAmountRow(
+                            label = stringResource(R.string.balance),
+                            amount = balance?.netBalance ?: 0L,
+                            color = balanceColor(balance?.netBalance ?: 0L),
+                            signed = true
+                        )
+                    }
+                }
+
                 item {
                     PersonDetailField(
                         label = stringResource(R.string.phone),
@@ -195,23 +248,66 @@ fun PersonDetailScreen(
                             fontWeight = FontWeight.SemiBold
                         )
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_expenses_yet),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = stringResource(R.string.no_expenses_hint),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        if (personExpenses.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 32.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.no_expenses_yet),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = stringResource(R.string.no_expenses_hint),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            val userId = currentUser?.id
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(
+                                    ListItemDefaults.SegmentedGap
+                                )
+                            ) {
+                                personExpenses.forEachIndexed { index, details ->
+                                    val delta = if (userId == null) {
+                                        0L
+                                    } else {
+                                        BalanceCalculator.expenseDelta(details, userId, personId) ?: 0L
+                                    }
+                                    SegmentedListItem(
+                                        selected = false,
+                                        onClick = {},
+                                        shapes = ListItemDefaults.segmentedShapes(
+                                            index = index,
+                                            count = personExpenses.size
+                                        ),
+                                        colors = ListItemDefaults.segmentedColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            selectedContentColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        ),
+                                        content = {
+                                            Text(
+                                                text = details.expense.description,
+                                                style = MaterialTheme.typography.bodyLarge
+                                            )
+                                        },
+                                        trailingContent = {
+                                            Text(
+                                                text = Money.formatSignedPaise(delta),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                color = balanceColor(delta)
+                                            )
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

@@ -3,6 +3,7 @@ package com.example.expensetracker.ui.groups
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,16 +30,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.expensetracker.R
+import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.PersonBalance
 import com.example.expensetracker.model.isCurrentUser
+import com.example.expensetracker.ui.balances.balanceColor
+import com.example.expensetracker.ui.balances.groupNetLabel
 import com.example.expensetracker.ui.persons.PersonAvatar
+import com.example.expensetracker.util.Money
 
 @Composable
 fun GroupList(
     groups: List<GroupSummary>,
     onGroupClick: (GroupSummary) -> Unit,
     modifier: Modifier = Modifier,
+    groupBalances: Map<Long, GroupBalance> = emptyMap(),
     contentPadding: PaddingValues = PaddingValues(
         start = 16.dp,
         end = 16.dp,
@@ -58,7 +65,8 @@ fun GroupList(
                 summary = summary,
                 index = index,
                 count = groups.size,
-                onClick = { onGroupClick(summary) }
+                onClick = { onGroupClick(summary) },
+                balance = groupBalances[summary.group.id]
             )
         }
     }
@@ -70,7 +78,8 @@ fun GroupSummaryListItem(
     index: Int,
     count: Int,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    balance: GroupBalance? = null
 ) {
     SegmentedListItem(
         selected = false,
@@ -100,6 +109,15 @@ fun GroupSummaryListItem(
                 text = stringResource(R.string.member_count, summary.memberCount)
             )
         },
+        trailingContent = balance?.let { groupBalance ->
+            {
+                Text(
+                    text = groupNetLabel(groupBalance),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = balanceColor(groupBalance.netBalance)
+                )
+            }
+        },
         modifier = modifier
     )
 }
@@ -108,6 +126,7 @@ fun GroupSummaryListItem(
 fun MemberListItem(
     person: Person,
     modifier: Modifier = Modifier,
+    balance: PersonBalance? = null,
     onClick: (() -> Unit)? = null,
     onMoreClick: (() -> Unit)? = null
 ) {
@@ -115,13 +134,26 @@ fun MemberListItem(
         leadingContent = {
             PersonAvatar(person = person)
         },
-        trailingContent = onMoreClick?.let { moreClick ->
-            {
-                IconButton(onClick = moreClick) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.more_actions)
+        trailingContent = {
+            Row {
+                if (balance != null && !person.isCurrentUser()) {
+                    Text(
+                        text = if (balance.netBalance == 0L) {
+                            stringResource(R.string.settled)
+                        } else {
+                            Money.formatSignedPaise(balance.netBalance)
+                        },
+                        color = balanceColor(balance.netBalance),
+                        modifier = Modifier.padding(end = if (onMoreClick != null) 0.dp else 16.dp)
                     )
+                }
+                if (onMoreClick != null) {
+                    IconButton(onClick = onMoreClick) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(R.string.more_actions)
+                        )
+                    }
                 }
             }
         },

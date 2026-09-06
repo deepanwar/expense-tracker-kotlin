@@ -37,6 +37,7 @@ import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
+import com.example.expensetracker.model.GroupBalance
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
@@ -69,13 +70,13 @@ fun GroupsScreen(
 ) {
     val app = LocalContext.current.applicationContext as ExpenseTrackerApplication
     val groupsViewModel: GroupsViewModel = viewModel(
-        factory = GroupsViewModelFactory(app.groupRepository)
+        factory = GroupsViewModelFactory(app.groupRepository, app.expenseRepository, app.personRepository)
     )
     val createViewModel: CreateGroupViewModel = viewModel(
         factory = CreateGroupViewModelFactory(app.groupRepository, app.personRepository)
     )
     val personsViewModel: PersonsViewModel = viewModel(
-        factory = PersonsViewModelFactory(app.personRepository, app.groupRepository)
+        factory = PersonsViewModelFactory(app.personRepository, app.groupRepository, app.expenseRepository)
     )
     val archivedViewModel: ArchivedGroupsViewModel = viewModel(
         factory = ArchivedGroupsViewModelFactory(app.groupRepository)
@@ -320,6 +321,7 @@ private fun GroupsListPane(
                 isLoading = uiState.isLoading,
                 groups = uiState.groups,
                 filteredGroups = filteredGroups,
+                groupBalances = uiState.groupBalances,
                 onGroupClick = { groupId ->
                     scope.launch {
                         searchBarState.animateToCollapsed()
@@ -333,6 +335,7 @@ private fun GroupsListPane(
             isLoading = uiState.isLoading,
             groups = uiState.groups,
             filteredGroups = filteredGroups,
+            groupBalances = uiState.groupBalances,
             onGroupClick = onGroupClick,
             onArchivedClick = onArchivedClick,
             showHeader = true,
@@ -346,6 +349,7 @@ private fun GroupListContent(
     isLoading: Boolean,
     groups: List<GroupSummary>,
     filteredGroups: List<GroupSummary>,
+    groupBalances: Map<Long, GroupBalance>,
     onGroupClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onArchivedClick: (() -> Unit)? = null,
@@ -408,6 +412,7 @@ private fun GroupListContent(
                 else -> {
                     GroupList(
                         groups = filteredGroups,
+                        groupBalances = groupBalances,
                         onGroupClick = { summary -> onGroupClick(summary.group.id) }
                     )
                 }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -39,7 +40,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.ui.balances.balanceColor
 import com.example.expensetracker.ui.preview.AppPreview
+import com.example.expensetracker.util.Money
 import kotlin.math.absoluteValue
 
 private data class PersonListSection(
@@ -62,6 +66,7 @@ private val AvatarColors = listOf(
 fun GroupedPersonList(
     persons: List<Person>,
     modifier: Modifier = Modifier,
+    personBalances: Map<Long, PersonBalance> = emptyMap(),
     contentPadding: PaddingValues = PaddingValues(
         start = 16.dp,
         end = 16.dp,
@@ -112,6 +117,21 @@ fun GroupedPersonList(
                                 PersonAvatar(person)
                             },
                             trailingContent = {
+                                val balance = personBalances[person.id]
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (balance != null) {
+                                        Text(
+                                            text = if (balance.netBalance == 0L) {
+                                                stringResource(R.string.settled)
+                                            } else {
+                                                Money.formatSignedPaise(balance.netBalance)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = balanceColor(balance.netBalance)
+                                        )
+                                    }
                                     IconButton(
                                         onClick = { onPersonMoreClick(person) },
                                         modifier = Modifier.size(40.dp)
@@ -121,7 +141,8 @@ fun GroupedPersonList(
                                             contentDescription = stringResource(R.string.more_actions)
                                         )
                                     }
-                                },
+                                }
+                            },
                             content = {
                                 Text(
                                     text = person.name,

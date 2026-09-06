@@ -3,34 +3,58 @@ package com.example.expensetracker.ui.persons
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
+import com.example.expensetracker.model.ExpenseDetails
 import com.example.expensetracker.model.GroupSummary
 import com.example.expensetracker.model.ImportedContact
+import com.example.expensetracker.model.OverallBalance
 import com.example.expensetracker.model.Person
+import com.example.expensetracker.model.PersonBalance
+import com.example.expensetracker.util.BalanceCalculator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class PersonsUiState(
     val isLoading: Boolean = true,
-    val persons: List<Person> = emptyList()
+    val persons: List<Person> = emptyList(),
+    val expenses: List<ExpenseDetails> = emptyList(),
+    val overallBalance: OverallBalance = OverallBalance(0, 0, 0),
+    val personBalances: Map<Long, PersonBalance> = emptyMap()
 )
 
 class PersonsViewModel(
     private val personRepository: PersonRepository,
-    private val groupRepository: GroupRepository
+    private val groupRepository: GroupRepository,
+    private val expenseRepository: ExpenseRepository
 ) : ViewModel() {
-    val uiState: StateFlow<PersonsUiState> = personRepository.observeOtherPersons()
-        .map { persons -> PersonsUiState(isLoading = false, persons = persons) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = PersonsUiState()
+    val uiState: StateFlow<PersonsUiState> = combine(
+        personRepository.observeOtherPersons(),
+        expenseRepository.observeAllExpenses(),
+        personRepository.observeCurrentUser()
+    ) { persons, expenses, user ->
+        val balances = if (user == null) {
+            emptyList()
+        } else {
+            BalanceCalculator.calculateAllPersonBalances(expenses, user.id, persons)
+        }
+        PersonsUiState(
+            isLoading = false,
+            persons = persons,
+            expenses = expenses,
+            overallBalance = BalanceCalculator.calculateOverallBalance(balances),
+            personBalances = balances.associateBy { it.personId }
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = PersonsUiState()
+    )
 
     val currentUser: StateFlow<Person?> = personRepository.observeCurrentUser()
         .stateIn(
@@ -92,12 +116,13 @@ class PersonsViewModel(
 
 class PersonsViewModelFactory(
     private val personRepository: PersonRepository,
-    private val groupRepository: GroupRepository
+    private val groupRepository: GroupRepository,
+    private val expenseRepository: ExpenseRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PersonsViewModel::class.java)) {
-            return PersonsViewModel(personRepository, groupRepository) as T
+            return PersonsViewModel(personRepository, groupRepository, expenseRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
