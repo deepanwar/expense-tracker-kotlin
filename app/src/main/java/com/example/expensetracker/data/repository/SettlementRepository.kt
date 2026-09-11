@@ -3,12 +3,15 @@ package com.example.expensetracker.data.repository
 import com.example.expensetracker.data.local.ExpenseTrackerDatabase
 import com.example.expensetracker.data.local.entity.SettlementEntity
 import com.example.expensetracker.data.local.toDomain
+import com.example.expensetracker.data.remote.CloudSync
+import com.example.expensetracker.data.remote.NoOpCloudSync
 import com.example.expensetracker.model.SettlementDetails
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class SettlementRepository(
-    private val database: ExpenseTrackerDatabase
+    private val database: ExpenseTrackerDatabase,
+    private val cloudSync: CloudSync = NoOpCloudSync
 ) {
     private val settlementDao = database.settlementDao()
 
@@ -33,16 +36,17 @@ class SettlementRepository(
         date: Long = System.currentTimeMillis()
     ): Long {
         val now = System.currentTimeMillis()
-        return settlementDao.insert(
-            SettlementEntity(
-                fromPersonId = fromPersonId,
-                toPersonId = toPersonId,
-                amountMinorUnits = amountMinorUnits,
-                groupId = groupId,
-                note = note?.trim()?.ifEmpty { null },
-                date = date,
-                createdAt = now
-            )
+        val settlement = SettlementEntity(
+            fromPersonId = fromPersonId,
+            toPersonId = toPersonId,
+            amountMinorUnits = amountMinorUnits,
+            groupId = groupId,
+            note = note?.trim()?.ifEmpty { null },
+            date = date,
+            createdAt = now
         )
+        val id = settlementDao.insert(settlement)
+        cloudSync.upsertSettlement(settlement.copy(id = id))
+        return id
     }
 }

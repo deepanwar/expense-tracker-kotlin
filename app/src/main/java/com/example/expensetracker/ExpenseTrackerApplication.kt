@@ -7,6 +7,7 @@ import com.example.expensetracker.data.local.MIGRATION_1_2
 import com.example.expensetracker.data.local.MIGRATION_2_3
 import com.example.expensetracker.data.local.MIGRATION_3_4
 import com.example.expensetracker.data.remote.createExpenseTrackerSupabaseClient
+import com.example.expensetracker.data.remote.SupabaseCloudSync
 import com.example.expensetracker.data.repository.AuthRepository
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
@@ -30,19 +31,23 @@ class ExpenseTrackerApplication : Application() {
         AuthRepository(supabase)
     }
 
+    val cloudSync: SupabaseCloudSync by lazy {
+        SupabaseCloudSync(supabase)
+    }
+
     val personRepository: PersonRepository by lazy {
-        PersonRepository(database.personDao())
+        PersonRepository(database.personDao(), cloudSync)
     }
 
     val groupRepository: GroupRepository by lazy {
-        GroupRepository(database)
+        GroupRepository(database, cloudSync)
     }
 
     val expenseRepository: ExpenseRepository by lazy {
-        ExpenseRepository(database)
+        ExpenseRepository(database, cloudSync)
     }
 
     val settlementRepository: SettlementRepository by lazy {
-        SettlementRepository(database)
+        SettlementRepository(database, cloudSync)
     }
 }

@@ -56,6 +56,9 @@ interface GroupDao {
     @Query("SELECT * FROM groups WHERE id = :id")
     fun observeById(id: Long): Flow<GroupEntity?>
 
+    @Query("SELECT * FROM groups WHERE id = :id")
+    suspend fun getById(id: Long): GroupEntity?
+
     @Transaction
     @Query("SELECT * FROM groups WHERE id = :id")
     fun observeGroupWithMembers(id: Long): Flow<GroupWithMemberEntities?>

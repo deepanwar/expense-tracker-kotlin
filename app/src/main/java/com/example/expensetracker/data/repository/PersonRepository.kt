@@ -3,6 +3,8 @@ package com.example.expensetracker.data.repository
 import com.example.expensetracker.data.local.dao.PersonDao
 import com.example.expensetracker.data.local.toDomain
 import com.example.expensetracker.data.local.toEntity
+import com.example.expensetracker.data.remote.CloudSync
+import com.example.expensetracker.data.remote.NoOpCloudSync
 import com.example.expensetracker.model.CURRENT_USER_CONTACT_ID
 import com.example.expensetracker.model.ImportedContact
 import com.example.expensetracker.model.Person
@@ -12,7 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class PersonRepository(
-    private val personDao: PersonDao
+    private val personDao: PersonDao,
+    private val cloudSync: CloudSync = NoOpCloudSync
 ) {
     fun observeAllPersons(): Flow<List<Person>> {
         return personDao.observeAll().map { persons -> persons.map { it.toDomain() } }
@@ -62,7 +65,9 @@ class PersonRepository(
             createdAt = if (person.createdAt > 0) person.createdAt else now,
             updatedAt = now
         )
-        return personDao.insert(normalized.toEntity())
+        val id = personDao.insert(normalized.toEntity())
+        cloudSync.upsertPerson(normalized.copy(id = id))
+        return id
     }
 
     suspend fun updatePerson(person: Person) {
@@ -73,10 +78,12 @@ class PersonRepository(
             updatedAt = now
         )
         personDao.update(normalized.toEntity())
+        cloudSync.upsertPerson(normalized)
     }
 
     suspend fun deletePerson(person: Person) {
         personDao.delete(person.toEntity())
+        cloudSync.deletePerson(person.id)
     }
 
     suspend fun findByPhone(phone: String): Person? {
