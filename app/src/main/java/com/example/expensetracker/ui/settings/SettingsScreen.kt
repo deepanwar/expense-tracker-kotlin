@@ -3,6 +3,7 @@ package com.example.expensetracker.ui.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -38,13 +40,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.expensetracker.ExpenseTrackerApplication
 import com.example.expensetracker.R
+import com.example.expensetracker.ui.auth.AuthViewModel
+import com.example.expensetracker.ui.auth.AuthViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier) {
     val defaults = stringArrayResource(R.array.known_issue_items).toList()
     val context = LocalContext.current
+    val app = context.applicationContext as ExpenseTrackerApplication
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(app.authRepository)
+    )
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
     val store = remember(context) { IssueNotesStore(context) }
     var issues by remember { mutableStateOf(store.load(defaults)) }
     var draft by remember { mutableStateOf("") }
@@ -101,6 +113,39 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text(
+                text = stringResource(R.string.account),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = authState.email ?: stringResource(R.string.not_available),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    TextButton(
+                        onClick = { authViewModel.signOut() },
+                        contentPadding = PaddingValues(horizontal = 0.dp)
+                    ) {
+                        Text(text = stringResource(R.string.sign_out))
+                    }
+                    val errorRes = authState.errorRes
+                    if (errorRes != null) {
+                        Text(
+                            text = stringResource(errorRes),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
             Text(
                 text = stringResource(R.string.known_issues),
                 style = MaterialTheme.typography.titleMedium

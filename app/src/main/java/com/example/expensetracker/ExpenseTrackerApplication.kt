@@ -6,6 +6,8 @@ import com.example.expensetracker.data.local.ExpenseTrackerDatabase
 import com.example.expensetracker.data.local.MIGRATION_1_2
 import com.example.expensetracker.data.local.MIGRATION_2_3
 import com.example.expensetracker.data.local.MIGRATION_3_4
+import com.example.expensetracker.data.remote.createExpenseTrackerSupabaseClient
+import com.example.expensetracker.data.repository.AuthRepository
 import com.example.expensetracker.data.repository.ExpenseRepository
 import com.example.expensetracker.data.repository.GroupRepository
 import com.example.expensetracker.data.repository.PersonRepository
@@ -20,6 +22,12 @@ class ExpenseTrackerApplication : Application() {
         )
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
+    }
+
+    val supabase by lazy { createExpenseTrackerSupabaseClient() }
+
+    val authRepository: AuthRepository by lazy {
+        AuthRepository(supabase)
     }
 
     val personRepository: PersonRepository by lazy {
